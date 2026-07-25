@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin BNM - Sistem Pengesahan Lokasi</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-container">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">🏦</div>
+                <div>
+                    <h2>BNM ADMIN</h2>
+                    <p>Bank Negara Malaysia</p>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="#"><i class="fas fa-exchange-alt"></i> Transaksi</a>
+                <a href="#"><i class="fas fa-map-marker-alt"></i> Tracking Lokasi</a>
+                <a href="#"><i class="fas fa-user-shield"></i> Keselamatan</a>
+                <a href="#"><i class="fas fa-cog"></i> Tetapan</a>
+            </nav>
+            <div class="sidebar-footer">
+                <p>© Kaizen Secure System</p>
+                <p class="version">v3.0.1</p>
+            </div>
+        </div>
+
+        <!-- MAIN -->
+        <div class="main-content">
+            <header class="admin-header">
+                <div>
+                    <h1>Dashboard Keselamatan Transaksi</h1>
+                    <p class="header-sub">Sistem Pengesahan Lokasi Real-Time</p>
+                </div>
+                <div class="header-stats">
+                    <div class="stat-chip">
+                        <i class="fas fa-clock"></i>
+                        <span id="liveTime">00:00:00</span>
+                    </div>
+                    <div class="stat-chip">
+                        <i class="fas fa-users"></i>
+                        <span>1,234 Pengguna</span>
+                    </div>
+                    <div class="stat-chip">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>SSL Aktif</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- STATS CARDS -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon blue"><i class="fas fa-file-invoice"></i></div>
+                    <div class="stat-info">
+                        <h3>Jumlah Transaksi</h3>
+                        <p id="totalTrans">0</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+                    <div class="stat-info">
+                        <h3>Disahkan</h3>
+                        <p id="verifiedTrans">0</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon yellow"><i class="fas fa-clock"></i></div>
+                    <div class="stat-info">
+                        <h3>Menunggu Lokasi</h3>
+                        <p id="pendingTrans">0</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon red"><i class="fas fa-map-pin"></i></div>
+                    <div class="stat-info">
+                        <h3>Lokasi Aktif</h3>
+                        <p id="activeLoc">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MAPS + LOCATION -->
+            <div class="maps-section">
+                <div class="maps-header">
+                    <h2><i class="fas fa-map-marked-alt"></i> Tracking Lokasi Pengguna</h2>
+                    <div class="maps-controls">
+                        <span class="live-badge">🔴 LIVE</span>
+                        <button class="btn-refresh-map" id="refreshMapBtn"><i class="fas fa-sync"></i> Refresh</button>
+                    </div>
+                </div>
+                <div class="maps-grid">
+                    <div class="map-container">
+                        <div id="mapDisplay" class="map-display">
+                            <div class="map-placeholder" id="mapPlaceholder">
+                                <i class="fas fa-map fa-5x"></i>
+                                <p>Menunggu data lokasi daripada pengguna...</p>
+                                <div class="loader-dots">
+                                    <span></span><span></span><span></span>
+                                </div>
+                            </div>
+                            <iframe id="mapFrame" class="map-frame" style="display:none;" src=""></iframe>
+                        </div>
+                    </div>
+                    <div class="location-details">
+                        <div class="loc-detail-header">
+                            <h3>📍 Lokasi Pengguna</h3>
+                            <span class="loc-status" id="locStatus">⏳ Menunggu</span>
+                        </div>
+                        <div class="loc-detail-body">
+                            <div class="loc-row">
+                                <span class="loc-label">Latitud</span>
+                                <span class="loc-value" id="locLat">-</span>
+                            </div>
+                            <div class="loc-row">
+                                <span class="loc-label">Longitud</span>
+                                <span class="loc-value" id="locLng">-</span>
+                            </div>
+                            <div class="loc-row">
+                                <span class="loc-label">Ketepatan</span>
+                                <span class="loc-value" id="locAcc">-</span>
+                            </div>
+                            <div class="loc-row">
+                                <span class="loc-label">Masa Dikesan</span>
+                                <span class="loc-value" id="locTime">-</span>
+                            </div>
+                            <div class="loc-row full">
+                                <span class="loc-label">Alamat</span>
+                                <span class="loc-value" id="locAddress">Menunggu data...</span>
+                            </div>
+                        </div>
+                        <button class="btn-open-maps" id="openMapsBtn">
+                            <i class="fas fa-external-link-alt"></i> Buka di Google Maps
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABLE TRANSACTIONS -->
+            <div class="table-section">
+                <div class="table-header">
+                    <h2><i class="fas fa-list"></i> Senarai Transaksi</h2>
+                    <div class="table-actions">
+                        <button class="btn-export"><i class="fas fa-download"></i> Export</button>
+                        <button class="btn-refresh-table" id="refreshTableBtn"><i class="fas fa-sync"></i> Refresh</button>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table class="trans-table">
+                        <thead>
+                            <tr>
+                                <th>ID Rujukan</th>
+                                <th>Pengirim</th>
+                                <th>Penerima</th>
+                                <th>Jumlah</th>
+                                <th>Status</th>
+                                <th>Lokasi</th>
+                                <th>Tindakan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transTableBody">
+                            <!-- Data from JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>

