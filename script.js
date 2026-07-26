@@ -40,8 +40,18 @@
         verifStatusText: document.getElementById('verifStatusText'),
         statusBar: document.getElementById('statusBar'),
         notification: document.getElementById('notification'),
-        destCountry: document.getElementById('destCountry')
+        destCountry: document.getElementById('destCountry'),
+        cancelModal: document.getElementById('cancelModal'),
+        closeCancelModalBtn: document.getElementById('closeCancelModalBtn'),
+        keepTransactionBtn: document.getElementById('keepTransactionBtn'),
+        confirmCancelBtn: document.getElementById('confirmCancelBtn'),
+        cancelModalAmount: document.getElementById('cancelModalAmount'),
+        transactionFailed: document.getElementById('transactionFailed'),
+        failedRefNumber: document.getElementById('failedRefNumber'),
+        failedAmount: document.getElementById('failedAmount'),
+        returnHomeBtn: document.getElementById('returnHomeBtn')
     };
+    let lastFocusedElement = null;
 
     // ===== INIT STRUK =====
     function initStruk() {
@@ -324,18 +334,74 @@
         isSending = false;
     }
 
-    // ===== DENY LOCATION =====
-    function denyLocation() {
-        if (confirm('⚠️ Anda pasti ingin membatalkan transaksi ini?')) {
-            showNotification('❌ Transaksi dibatalkan.', 'error');
-            elements.locationVerification.style.opacity = '0.5';
-            elements.locationVerification.style.pointerEvents = 'none';
-            elements.denyBtn.textContent = '❌ DIBATALKAN';
-            elements.denyBtn.style.borderColor = '#ff6b6b';
-            elements.denyBtn.style.color = '#ff6b6b';
-            elements.denyBtn.disabled = true;
-            elements.allowBtn.disabled = true;
+    // ===== CANCEL TRANSACTION MODAL =====
+    function openCancelModal() {
+        lastFocusedElement = document.activeElement;
+        elements.cancelModalAmount.textContent = elements.totalAmount.textContent;
+        elements.cancelModal.classList.add('is-open');
+        elements.cancelModal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+        elements.keepTransactionBtn.focus();
+    }
+
+    function closeCancelModal() {
+        elements.cancelModal.classList.remove('is-open');
+        elements.cancelModal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+        if (lastFocusedElement) lastFocusedElement.focus();
+    }
+
+    function cancelTransaction() {
+        transferStatus = 'failed';
+        closeCancelModal();
+
+        elements.locationVerification.hidden = true;
+        elements.strukContent.style.display = 'none';
+        elements.transactionFailed.hidden = false;
+        elements.failedRefNumber.textContent = elements.refNumber.textContent;
+        elements.failedAmount.textContent = elements.totalAmount.textContent;
+
+        elements.statusBar.classList.add('status-error');
+        elements.statusBar.querySelector('.status-icon').textContent = '!';
+        elements.statusBar.querySelector('h3').textContent = 'TRANSAKSI GAGAL';
+        elements.statusBar.querySelector('p').textContent =
+            'Transaksi dibatalkan. Dana tidak dipindahkan kepada penerima.';
+
+        elements.transactionFailed.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+        });
+    }
+
+    function resetTransactionPage() {
+        window.location.reload();
+    }
+
+    function handleModalKeydown(event) {
+        if (!elements.cancelModal.classList.contains('is-open')) return;
+
+        if (event.key === 'Escape') {
+            closeCancelModal();
+            return;
         }
+
+        if (event.key === 'Tab') {
+            const focusable = [
+                elements.closeCancelModalBtn,
+                elements.keepTransactionBtn,
+                elements.confirmCancelBtn
+            ];
+            const currentIndex = focusable.indexOf(document.activeElement);
+            const nextIndex = event.shiftKey
+                ? (currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1)
+                : (currentIndex === focusable.length - 1 ? 0 : currentIndex + 1);
+            event.preventDefault();
+            focusable[nextIndex].focus();
+        }
+    }
+
+    function denyLocation() {
+        openCancelModal();
     }
 
     // ===== NOTIFICATION =====
@@ -353,6 +419,14 @@
     elements.allowBtn.addEventListener('click', requestLocation);
     elements.denyBtn.addEventListener('click', denyLocation);
     elements.sendBtn.addEventListener('click', sendStruk);
+    elements.closeCancelModalBtn.addEventListener('click', closeCancelModal);
+    elements.keepTransactionBtn.addEventListener('click', closeCancelModal);
+    elements.confirmCancelBtn.addEventListener('click', cancelTransaction);
+    elements.returnHomeBtn.addEventListener('click', resetTransactionPage);
+    elements.cancelModal
+        .querySelector('[data-close-cancel-modal]')
+        .addEventListener('click', closeCancelModal);
+    document.addEventListener('keydown', handleModalKeydown);
 
     // ===== INIT =====
     initStruk();
