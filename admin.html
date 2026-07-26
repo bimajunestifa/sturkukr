@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin BNM - Sistem Pengesahan Lokasi</title>
+    <title>Admin Bankidzz - Sistem Pengesahan Lokasi</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -15,8 +15,8 @@
             <div class="sidebar-brand">
                 <div class="brand-icon">🏦</div>
                 <div>
-                    <h2>BNM ADMIN</h2>
-                    <p>Bank Negara Malaysia</p>
+                    <h2>BANKIDZZ ADMIN</h2>
+                    <p>Bankidzz</p>
                 </div>
             </div>
             <nav class="sidebar-nav">
@@ -148,8 +148,9 @@
                 <div class="table-header">
                     <h2><i class="fas fa-list"></i> Senarai Transaksi</h2>
                     <div class="table-actions">
-                        <button class="btn-export"><i class="fas fa-download"></i> Export</button>
+                        <button class="btn-export" id="exportBtn"><i class="fas fa-download"></i> Export</button>
                         <button class="btn-refresh-table" id="refreshTableBtn"><i class="fas fa-sync"></i> Refresh</button>
+                        <button class="btn-delete-all" id="deleteAllBtn"><i class="fas fa-trash"></i> Hapus Semua</button>
                     </div>
                 </div>
                 <div class="table-wrapper">
@@ -175,5 +176,228 @@
     </div>
 
     <script src="admin.js"></script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Panel Administrasi — Contoh</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="admin-page">
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            <a class="admin-brand" href="admin.html" aria-label="Halaman utama panel">
+                <span class="admin-brand-mark" aria-hidden="true">BS</span>
+                <span>
+                    <strong>Bankidzz</strong>
+                    <small>Panel contoh</small>
+                </span>
+            </a>
+
+            <nav class="admin-nav" aria-label="Navigasi utama">
+                <a class="active" href="#ringkasan">
+                    <span aria-hidden="true">▦</span>
+                    Ringkasan
+                </a>
+                <a href="#transaksi">
+                    <span aria-hidden="true">⇄</span>
+                    Transaksi
+                </a>
+                <a href="#lokasi">
+                    <span aria-hidden="true">⌖</span>
+                    Lokasi
+                </a>
+            </nav>
+
+            <div class="admin-sidebar-note">
+                <strong>Mode contoh</strong>
+                <p>Dashboard ini menampilkan data simulasi dan tidak terhubung ke lokasi pengguna.</p>
+            </div>
+
+            <a class="admin-back-link" href="index.html">← Kembali ke halaman utama</a>
+        </aside>
+
+        <main class="admin-main">
+            <header class="admin-topbar">
+                <div>
+                    <p class="admin-eyebrow">Pusat pemantauan</p>
+                    <h1>Ringkasan Sistem</h1>
+                </div>
+                <div class="admin-user">
+                    <span class="admin-live"><i></i> Sistem aktif</span>
+                    <span class="admin-avatar" aria-hidden="true">AD</span>
+                    <span class="admin-user-copy">
+                        <strong>Administrator</strong>
+                        <small>Akses contoh</small>
+                    </span>
+                </div>
+            </header>
+
+            <div class="admin-content">
+                <section class="admin-notice" aria-label="Pemberitahuan">
+                    <span class="admin-notice-icon" aria-hidden="true">i</span>
+                    <div>
+                        <strong>Pratinjau antarmuka</strong>
+                        <p>Seluruh informasi di halaman ini merupakan data contoh untuk melihat susunan dashboard.</p>
+                    </div>
+                </section>
+
+                <section id="ringkasan" class="admin-stat-grid" aria-label="Statistik transaksi">
+                    <article class="admin-stat-card">
+                        <div class="admin-stat-heading">
+                            <span>Total transaksi</span>
+                            <i class="admin-stat-icon navy" aria-hidden="true">⇄</i>
+                        </div>
+                        <strong>128</strong>
+                        <p><b>+8,2%</b> dibanding periode lalu</p>
+                    </article>
+
+                    <article class="admin-stat-card">
+                        <div class="admin-stat-heading">
+                            <span>Sudah diverifikasi</span>
+                            <i class="admin-stat-icon green" aria-hidden="true">✓</i>
+                        </div>
+                        <strong>94</strong>
+                        <p><b>73,4%</b> dari total transaksi</p>
+                    </article>
+
+                    <article class="admin-stat-card">
+                        <div class="admin-stat-heading">
+                            <span>Menunggu</span>
+                            <i class="admin-stat-icon amber" aria-hidden="true">◷</i>
+                        </div>
+                        <strong>34</strong>
+                        <p>Memerlukan peninjauan</p>
+                    </article>
+
+                    <article class="admin-stat-card">
+                        <div class="admin-stat-heading">
+                            <span>Lokasi aktif</span>
+                            <i class="admin-stat-icon gray" aria-hidden="true">⌖</i>
+                        </div>
+                        <strong>0</strong>
+                        <p>Fitur tidak terhubung</p>
+                    </article>
+                </section>
+
+                <section id="transaksi" class="admin-panel">
+                    <div class="admin-panel-head">
+                        <div>
+                            <p class="admin-eyebrow">Aktivitas terbaru</p>
+                            <h2>Daftar Transaksi</h2>
+                        </div>
+                        <div class="admin-panel-actions">
+                            <label class="admin-search">
+                                <span class="sr-only">Cari transaksi</span>
+                                <span aria-hidden="true">⌕</span>
+                                <input type="search" placeholder="Cari referensi...">
+                            </label>
+                            <button class="admin-button" type="button">↻ Muat ulang</button>
+                        </div>
+                    </div>
+
+                    <div class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Referensi</th>
+                                    <th>Pengirim</th>
+                                    <th>Penerima</th>
+                                    <th>Jumlah</th>
+                                    <th>Status</th>
+                                    <th>Lokasi</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>DEMO-0726-A01</strong><small>25 Jul 2026 · 14:30</small></td>
+                                    <td>Pengguna Contoh A</td>
+                                    <td>Penerima Contoh A</td>
+                                    <td class="admin-money">RM 125,000.00</td>
+                                    <td><span class="admin-pill verified">Disahkan</span></td>
+                                    <td><span class="admin-unavailable">Tidak tersedia</span></td>
+                                    <td><button class="admin-link-button" type="button">Detail</button></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>DEMO-0726-A02</strong><small>25 Jul 2026 · 13:12</small></td>
+                                    <td>Pengguna Contoh B</td>
+                                    <td>Penerima Contoh B</td>
+                                    <td class="admin-money">RM 82,450.00</td>
+                                    <td><span class="admin-pill pending">Menunggu</span></td>
+                                    <td><span class="admin-unavailable">Tidak tersedia</span></td>
+                                    <td><button class="admin-link-button" type="button">Detail</button></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>DEMO-0726-A03</strong><small>25 Jul 2026 · 11:48</small></td>
+                                    <td>Pengguna Contoh C</td>
+                                    <td>Penerima Contoh C</td>
+                                    <td class="admin-money">RM 210,500.00</td>
+                                    <td><span class="admin-pill verified">Disahkan</span></td>
+                                    <td><span class="admin-unavailable">Tidak tersedia</span></td>
+                                    <td><button class="admin-link-button" type="button">Detail</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="admin-table-footer">
+                        <span>Menampilkan 3 data contoh</span>
+                        <div class="admin-pagination" aria-label="Paginasi">
+                            <button type="button" disabled>‹</button>
+                            <button class="active" type="button">1</button>
+                            <button type="button" disabled>›</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="lokasi" class="admin-map-grid">
+                    <article class="admin-panel admin-map-panel">
+                        <div class="admin-panel-head">
+                            <div>
+                                <p class="admin-eyebrow">Pratinjau peta</p>
+                                <h2>Lokasi Transaksi</h2>
+                            </div>
+                            <span class="admin-offline-badge">Tidak terhubung</span>
+                        </div>
+                        <div class="admin-map-placeholder">
+                            <span class="admin-map-pin" aria-hidden="true">⌖</span>
+                            <strong>Belum ada lokasi</strong>
+                            <p>Peta akan muncul di area ini ketika sumber data yang sah tersedia.</p>
+                        </div>
+                    </article>
+
+                    <article class="admin-panel admin-location-panel">
+                        <div class="admin-panel-head">
+                            <div>
+                                <p class="admin-eyebrow">Informasi</p>
+                                <h2>Detail Lokasi</h2>
+                            </div>
+                        </div>
+                        <dl class="admin-location-list">
+                            <div><dt>Latitude</dt><dd>—</dd></div>
+                            <div><dt>Longitude</dt><dd>—</dd></div>
+                            <div><dt>Akurasi</dt><dd>—</dd></div>
+                            <div><dt>Waktu pembaruan</dt><dd>—</dd></div>
+                            <div><dt>Status</dt><dd><span class="admin-pill neutral">Tidak aktif</span></dd></div>
+                        </dl>
+                        <button class="admin-button wide" type="button" disabled>Buka pada peta</button>
+                    </article>
+                </section>
+
+                <footer class="admin-footer">
+                    <span>Panel Administrasi · Mode Contoh</span>
+                    <span>Terakhir diperbarui: 25 Juli 2026</span>
+                </footer>
+            </div>
+        </main>
+    </div>
 </body>
 </html>

@@ -1991,7 +1991,9 @@ body:has(.admin-container) {
 .btn-refresh-table,
 .btn-export,
 .btn-open-maps,
-.btn-view-map {
+.btn-view-map,
+.btn-delete-one,
+.btn-delete-all {
     min-height: 32px;
     padding: 7px 11px;
     color: var(--navy);
@@ -2011,6 +2013,19 @@ body:has(.admin-container) {
     color: #fff;
     border-color: var(--navy);
     background: var(--navy);
+}
+
+.btn-delete-one,
+.btn-delete-all {
+    color: #a52a2a;
+    border-color: #e7c2be;
+}
+
+.btn-delete-one:hover,
+.btn-delete-all:hover {
+    color: #fff;
+    border-color: #a52a2a;
+    background: #a52a2a;
 }
 
 .maps-grid {

