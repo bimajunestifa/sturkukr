@@ -1,0 +1,34 @@
+[
+  {
+    "transferId": "BANKIDZZ-2026-09-12-TEST001",
+    "sender": "Ahmad Abdullah",
+    "senderAccount": "1234567890",
+    "senderBank": "Bank Indonesia",
+    "receiver": "John Smith",
+    "receiverAccount": "9876543210",
+    "receiverBank": "JPMorgan Chase",
+    "amount": 1500000,
+    "status": "pending",
+    "timestamp": "2026-09-12T09:10:00Z",
+    "location": {
+      "lat": -6.2088,
+      "lng": 106.8456,
+      "accuracy": 15
+    }
+  },
+  {
+    "timestamp": "2026-09-16T10:21:20Z",
+    "transferId": "REF-TEST1234",
+    "photo": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "location": {
+      "lng": 106.8456,
+      "timestamp": "2026-09-16T10:21:20Z",
+      "lat": -6.2088,
+      "accuracy": 15
+    },
+    "amount": "IDR 515.000",
+    "receiver": "Tasliyah",
+    "sender": "FITO ALAMSYAH",
+    "consent": true
+  }
+]

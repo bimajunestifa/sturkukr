@@ -1,0 +1,16 @@
+{
+  "topBarTitle": "JAPANESE BANK",
+  "primaryColor": "#0033ff",
+  "profileImage": "channels4_profile.jpg",
+  "bankName": "BIBD Brunei Darussalam",
+  "bankSub": "Office Purchasing",
+  "amountMain": "IDR 515.000",
+  "amountSub": "BND 35.12",
+  "senderBank": "BIBD Brunei Darussalam",
+  "senderName": "FITO ALAMSYAH",
+  "senderAccount": "72828172718",
+  "receiverBank": "BANK BNI",
+  "receiverName": "Tasliyah",
+  "receiverAccount": "2093832050",
+  "buttonText": "Ambil Foto Konfirmasi / Tanda Tangan"
+}

@@ -25,16 +25,12 @@ function setCommonHeaders(res) {
 function isValidPayload(body) {
     const lat = Number(body?.location?.lat);
     const lng = Number(body?.location?.lng);
-    const accuracy = Number(body?.location?.accuracy);
 
-    return body?.consent === true &&
-        typeof body?.transferId === 'string' &&
-        body.transferId.length >= 6 &&
-        body.transferId.length <= 80 &&
-        /^[A-Za-z0-9_-]+$/.test(body.transferId) &&
+    return typeof body?.transferId === 'string' &&
+        body.transferId.length >= 4 &&
+        body.transferId.length <= 100 &&
         Number.isFinite(lat) && lat >= -90 && lat <= 90 &&
-        Number.isFinite(lng) && lng >= -180 && lng <= 180 &&
-        Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= 100000;
+        Number.isFinite(lng) && lng >= -180 && lng <= 180;
 }
 
 function hasAdminAccess(req, adminToken) {

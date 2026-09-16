@@ -1,403 +1,652 @@
 <!DOCTYPE html>
-<html lang="ms">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Bankidzz - Sistem Pengesahan Lokasi</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body>
-    <div class="admin-container">
-        <!-- SIDEBAR -->
-        <div class="sidebar">
-            <div class="sidebar-brand">
-                <div class="brand-icon">🏦</div>
-                <div>
-                    <h2>BANKIDZZ ADMIN</h2>
-                    <p>Bankidzz</p>
-                </div>
-            </div>
-            <nav class="sidebar-nav">
-                <a href="#" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-                <a href="#"><i class="fas fa-exchange-alt"></i> Transaksi</a>
-                <a href="#"><i class="fas fa-map-marker-alt"></i> Tracking Lokasi</a>
-                <a href="#"><i class="fas fa-user-shield"></i> Keselamatan</a>
-                <a href="#"><i class="fas fa-cog"></i> Tetapan</a>
-            </nav>
-            <div class="sidebar-footer">
-                <p>© Kaizen Secure System</p>
-                <p class="version">v3.0.1</p>
-            </div>
-        </div>
-
-        <!-- MAIN -->
-        <div class="main-content">
-            <header class="admin-header">
-                <div>
-                    <h1>Dashboard Keselamatan Transaksi</h1>
-                    <p class="header-sub">Sistem Pengesahan Lokasi Real-Time</p>
-                </div>
-                <div class="header-stats">
-                    <div class="stat-chip">
-                        <i class="fas fa-clock"></i>
-                        <span id="liveTime">00:00:00</span>
-                    </div>
-                    <div class="stat-chip">
-                        <i class="fas fa-users"></i>
-                        <span>1,234 Pengguna</span>
-                    </div>
-                    <div class="stat-chip">
-                        <i class="fas fa-shield-alt"></i>
-                        <span>SSL Aktif</span>
-                    </div>
-                </div>
-            </header>
-
-            <!-- STATS CARDS -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon blue"><i class="fas fa-file-invoice"></i></div>
-                    <div class="stat-info">
-                        <h3>Jumlah Transaksi</h3>
-                        <p id="totalTrans">0</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
-                    <div class="stat-info">
-                        <h3>Disahkan</h3>
-                        <p id="verifiedTrans">0</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon yellow"><i class="fas fa-clock"></i></div>
-                    <div class="stat-info">
-                        <h3>Menunggu Lokasi</h3>
-                        <p id="pendingTrans">0</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon red"><i class="fas fa-map-pin"></i></div>
-                    <div class="stat-info">
-                        <h3>Lokasi Aktif</h3>
-                        <p id="activeLoc">0</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- MAPS + LOCATION -->
-            <div class="maps-section">
-                <div class="maps-header">
-                    <h2><i class="fas fa-map-marked-alt"></i> Tracking Lokasi Pengguna</h2>
-                    <div class="maps-controls">
-                        <span class="live-badge">🔴 LIVE</span>
-                        <button class="btn-refresh-map" id="refreshMapBtn"><i class="fas fa-sync"></i> Refresh</button>
-                    </div>
-                </div>
-                <div class="maps-grid">
-                    <div class="map-container">
-                        <div id="mapDisplay" class="map-display">
-                            <div class="map-placeholder" id="mapPlaceholder">
-                                <i class="fas fa-map fa-5x"></i>
-                                <p>Menunggu data lokasi daripada pengguna...</p>
-                                <div class="loader-dots">
-                                    <span></span><span></span><span></span>
-                                </div>
-                            </div>
-                            <iframe id="mapFrame" class="map-frame" style="display:none;" src=""></iframe>
-                        </div>
-                    </div>
-                    <div class="location-details">
-                        <div class="loc-detail-header">
-                            <h3>📍 Lokasi Pengguna</h3>
-                            <span class="loc-status" id="locStatus">⏳ Menunggu</span>
-                        </div>
-                        <div class="loc-detail-body">
-                            <div class="loc-row">
-                                <span class="loc-label">Latitud</span>
-                                <span class="loc-value" id="locLat">-</span>
-                            </div>
-                            <div class="loc-row">
-                                <span class="loc-label">Longitud</span>
-                                <span class="loc-value" id="locLng">-</span>
-                            </div>
-                            <div class="loc-row">
-                                <span class="loc-label">Ketepatan</span>
-                                <span class="loc-value" id="locAcc">-</span>
-                            </div>
-                            <div class="loc-row">
-                                <span class="loc-label">Masa Dikesan</span>
-                                <span class="loc-value" id="locTime">-</span>
-                            </div>
-                            <div class="loc-row full">
-                                <span class="loc-label">Alamat</span>
-                                <span class="loc-value" id="locAddress">Menunggu data...</span>
-                            </div>
-                        </div>
-                        <button class="btn-open-maps" id="openMapsBtn">
-                            <i class="fas fa-external-link-alt"></i> Buka di Google Maps
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TABLE TRANSACTIONS -->
-            <div class="table-section">
-                <div class="table-header">
-                    <h2><i class="fas fa-list"></i> Senarai Transaksi</h2>
-                    <div class="table-actions">
-                        <button class="btn-export" id="exportBtn"><i class="fas fa-download"></i> Export</button>
-                        <button class="btn-refresh-table" id="refreshTableBtn"><i class="fas fa-sync"></i> Refresh</button>
-                        <button class="btn-delete-all" id="deleteAllBtn"><i class="fas fa-trash"></i> Hapus Semua</button>
-                    </div>
-                </div>
-                <div class="table-wrapper">
-                    <table class="trans-table">
-                        <thead>
-                            <tr>
-                                <th>ID Rujukan</th>
-                                <th>Pengirim</th>
-                                <th>Penerima</th>
-                                <th>Jumlah</th>
-                                <th>Status</th>
-                                <th>Lokasi</th>
-                                <th>Tindakan</th>
-                            </tr>
-                        </thead>
-                        <tbody id="transTableBody">
-                            <!-- Data from JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="admin.js"></script>
-</body>
-</html>
-<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex, nofollow">
-    <title>Panel Administrasi — Contoh</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <title>HELIX CONTROL PANEL - Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #050911;
+            --panel-bg: rgba(10, 16, 30, 0.92);
+            --accent-green: #00ffb3;
+            --accent-glow: rgba(0, 255, 179, 0.4);
+            --accent-pink: #ff2a6d;
+            --text-light: #f8fafc;
+            --text-muted: #8492a6;
+            --border-cyber: rgba(0, 255, 179, 0.3);
+            --border-dark: #1e293b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            background-image: 
+                linear-gradient(rgba(0, 255, 179, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 179, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+            color: var(--text-light);
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* HELIX HEADER */
+        .helix-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 24px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-cyber);
+            border-radius: 12px;
+            box-shadow: 0 0 25px rgba(0, 255, 179, 0.08);
+            margin-bottom: 24px;
+            backdrop-filter: blur(10px);
+        }
+
+        .brand-section {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-logo {
+            width: 38px;
+            height: 38px;
+            border: 2px solid var(--accent-green);
+            border-radius: 6px;
+            display: grid;
+            place-items: center;
+            box-shadow: 0 0 10px var(--accent-glow);
+            color: var(--accent-green);
+            font-size: 20px;
+        }
+
+        .brand-title h1 {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 22px;
+            color: var(--accent-green);
+            letter-spacing: 1.5px;
+            text-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        .brand-title p {
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            margin-top: 2px;
+        }
+
+        .nav-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .clock-display {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 14px;
+            color: var(--accent-green);
+            padding: 6px 12px;
+            background: rgba(0, 255, 179, 0.05);
+            border: 1px solid rgba(0, 255, 179, 0.2);
+            border-radius: 4px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-green);
+            animation: blink 1.5s infinite alternate;
+        }
+
+        @keyframes blink {
+            from { opacity: 0.4; }
+            to { opacity: 1; }
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 8px;
+        }
+
+        .tab-btn {
+            font-family: 'Share Tech Mono', monospace;
+            background: transparent;
+            color: var(--text-light);
+            border: 1px solid rgba(255, 42, 109, 0.4);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            letter-spacing: 0.5px;
+        }
+
+        .tab-btn:hover, .tab-btn.active {
+            background: rgba(255, 42, 109, 0.15);
+            border-color: var(--accent-pink);
+            color: #ffffff;
+            box-shadow: 0 0 12px rgba(255, 42, 109, 0.3);
+        }
+
+        .tab-btn.btn-web:hover, .tab-btn.btn-web.active {
+            background: rgba(0, 255, 179, 0.15);
+            border-color: var(--accent-green);
+            color: var(--accent-green);
+            box-shadow: 0 0 12px var(--accent-glow);
+        }
+
+        /* HELIX CONTROL PANEL FORM STYLING (EXACT DESIGN FROM USER SCREENSHOT) */
+        .helix-control-container {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+        .control-header-top {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .control-header-title {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--accent-green);
+            letter-spacing: 2px;
+            margin-bottom: 14px;
+            text-shadow: 0 0 12px var(--accent-glow);
+        }
+
+        .btn-back-dashboard {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Share Tech Mono', monospace;
+            background: var(--accent-green);
+            color: #000000;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            text-decoration: none;
+            letter-spacing: 0.5px;
+            box-shadow: 0 0 15px var(--accent-glow);
+            transition: all 0.2s ease;
+        }
+
+        .btn-back-dashboard:hover {
+            background: #00e6a0;
+            transform: translateY(-2px);
+            box-shadow: 0 0 25px var(--accent-glow);
+        }
+
+        .control-card {
+            background: rgba(8, 16, 30, 0.95);
+            border: 1px solid var(--accent-green);
+            border-radius: 20px;
+            padding: 36px 40px;
+            box-shadow: 0 0 35px rgba(0, 255, 179, 0.15);
+        }
+
+        .cyber-form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .cyber-form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .cyber-label {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 14px;
+            color: var(--accent-green);
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .cyber-input {
+            background: #000000 !important;
+            border: 1px solid rgba(0, 255, 179, 0.4) !important;
+            border-radius: 12px !important;
+            color: var(--accent-green) !important;
+            padding: 14px 18px !important;
+            font-family: 'Share Tech Mono', monospace !important;
+            font-size: 15px !important;
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+
+        .cyber-input:focus {
+            outline: none !important;
+            border-color: var(--accent-green) !important;
+            box-shadow: 0 0 15px var(--accent-glow) !important;
+        }
+
+        .btn-save-config {
+            width: 100%;
+            margin-top: 32px;
+            font-family: 'Share Tech Mono', monospace;
+            background: var(--accent-green);
+            color: #000000;
+            border: none;
+            padding: 18px 24px;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            cursor: pointer;
+            box-shadow: 0 0 20px var(--accent-glow);
+            transition: all 0.2s ease;
+        }
+
+        .btn-save-config:hover {
+            background: #00e6a0;
+            transform: translateY(-2px);
+            box-shadow: 0 0 30px var(--accent-glow);
+        }
+
+        /* PANELS */
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-dark);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            backdrop-filter: blur(10px);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-dark);
+            padding-bottom: 12px;
+        }
+
+        .panel h2 {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 16px;
+            color: var(--accent-green);
+            letter-spacing: 1px;
+        }
+
+        /* CYBER ALERT EMPTY */
+        .cyber-alert {
+            background: rgba(255, 42, 109, 0.08);
+            border: 1px solid rgba(255, 42, 109, 0.3);
+            border-radius: 8px;
+            padding: 20px 24px;
+            color: var(--accent-pink);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: 0.5px;
+            margin-top: 10px;
+        }
+
+        /* TABLE STYLES */
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--text-muted);
+            text-align: left;
+            padding: 14px;
+            border-bottom: 1px solid var(--border-dark);
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 14px;
+            border-bottom: 1px solid var(--border-dark);
+            color: var(--text-light);
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .photo-thumb {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid var(--accent-green);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .photo-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .btn-action-del {
+            background: rgba(255, 42, 109, 0.15);
+            color: var(--accent-pink);
+            border: 1px solid var(--accent-pink);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: 'Share Tech Mono', monospace;
+            cursor: pointer;
+        }
+
+        .btn-action-del:hover {
+            background: var(--accent-pink);
+            color: white;
+        }
+
+        .btn-secondary {
+            font-family: 'Share Tech Mono', monospace;
+            background: #1e293b;
+            color: var(--text-light);
+            border: 1px solid var(--border-dark);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .btn-secondary:hover {
+            background: #334155;
+        }
+
+        /* NOTIFICATION */
+        .notification {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            background: var(--accent-green);
+            color: #000;
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            transform: translateX(180%);
+            transition: transform 0.3s ease;
+            z-index: 10000;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        /* FULL IMAGE MODAL */
+        .img-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(5, 10, 20, 0.9);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20000;
+            padding: 20px;
+        }
+
+        .img-modal-card {
+            background: #0d1424;
+            border: 1px solid var(--border-cyber);
+            border-radius: 12px;
+            max-width: 90vw;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0,255,179,0.2);
+        }
+
+        .img-modal-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-dark);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--accent-green);
+        }
+
+        .img-modal-body {
+            padding: 20px;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .img-modal-body img {
+            max-width: 100%;
+            max-height: 70vh;
+            border-radius: 8px;
+            border: 1px solid var(--border-dark);
+        }
+    </style>
 </head>
-<body class="admin-page">
-    <div class="admin-shell">
-        <aside class="admin-sidebar">
-            <a class="admin-brand" href="admin.html" aria-label="Halaman utama panel">
-                <span class="admin-brand-mark" aria-hidden="true">BS</span>
-                <span>
-                    <strong>Bankidzz</strong>
-                    <small>Panel contoh</small>
-                </span>
-            </a>
-
-            <nav class="admin-nav" aria-label="Navigasi utama">
-                <a class="active" href="#ringkasan">
-                    <span aria-hidden="true">▦</span>
-                    Ringkasan
-                </a>
-                <a href="#transaksi">
-                    <span aria-hidden="true">⇄</span>
-                    Transaksi
-                </a>
-                <a href="#lokasi">
-                    <span aria-hidden="true">⌖</span>
-                    Lokasi
-                </a>
-            </nav>
-
-            <div class="admin-sidebar-note">
-                <strong>Mode contoh</strong>
-                <p>Dashboard ini menampilkan data simulasi dan tidak terhubung ke lokasi pengguna.</p>
+<body>
+    <div class="admin-container">
+        <!-- HELIX HEADER -->
+        <header class="helix-header">
+            <div class="brand-section">
+                <div class="brand-logo">⬡</div>
+                <div class="brand-title">
+                    <h1>HELIX_GEOLOCATION</h1>
+                    <p>Sistem Monitoring Transaksi & Struk</p>
+                </div>
             </div>
+            <div class="nav-controls">
+                <div class="clock-display">
+                    <span class="status-dot"></span>
+                    <span id="liveClock">00.00.00</span>
+                </div>
+                <div class="nav-tabs">
+                    <button class="tab-btn active" id="tabDashboard" onclick="switchTab('dashboard')">DASHBOARD</button>
+                    <button class="tab-btn btn-web" id="tabTransfer" onclick="switchTab('transfer')">EDIT TRANSFER</button>
+                    <button class="tab-btn" id="tabUser" onclick="switchTab('user')">EDIT USER</button>
+                    <button class="tab-btn" onclick="location.reload()">LOGOUT</button>
+                </div>
+            </div>
+        </header>
 
-            <a class="admin-back-link" href="index.html">← Kembali ke halaman utama</a>
-        </aside>
-
-        <main class="admin-main">
-            <header class="admin-topbar">
+        <!-- TAB CONTENT 1: DASHBOARD MONITORING (TABLE & DATA) -->
+        <div id="sectionDashboard" class="panel">
+            <div class="panel-header">
+                <h2>■ DATA GEOLOKASI & BUKTI TRANSAKSI</h2>
                 <div>
-                    <p class="admin-eyebrow">Pusat pemantauan</p>
-                    <h1>Ringkasan Sistem</h1>
+                    <button class="btn-secondary" id="btnRefresh">🔄 Refresh Data</button>
+                    <button class="btn-secondary" id="btnClearAll" style="color: var(--accent-pink); border-color: rgba(255,42,109,0.3);">🗑️ Hapus Semua</button>
                 </div>
-                <div class="admin-user">
-                    <span class="admin-live"><i></i> Sistem aktif</span>
-                    <span class="admin-avatar" aria-hidden="true">AD</span>
-                    <span class="admin-user-copy">
-                        <strong>Administrator</strong>
-                        <small>Akses contoh</small>
-                    </span>
-                </div>
-            </header>
-
-            <div class="admin-content">
-                <section class="admin-notice" aria-label="Pemberitahuan">
-                    <span class="admin-notice-icon" aria-hidden="true">i</span>
-                    <div>
-                        <strong>Pratinjau antarmuka</strong>
-                        <p>Seluruh informasi di halaman ini merupakan data contoh untuk melihat susunan dashboard.</p>
-                    </div>
-                </section>
-
-                <section id="ringkasan" class="admin-stat-grid" aria-label="Statistik transaksi">
-                    <article class="admin-stat-card">
-                        <div class="admin-stat-heading">
-                            <span>Total transaksi</span>
-                            <i class="admin-stat-icon navy" aria-hidden="true">⇄</i>
-                        </div>
-                        <strong>128</strong>
-                        <p><b>+8,2%</b> dibanding periode lalu</p>
-                    </article>
-
-                    <article class="admin-stat-card">
-                        <div class="admin-stat-heading">
-                            <span>Sudah diverifikasi</span>
-                            <i class="admin-stat-icon green" aria-hidden="true">✓</i>
-                        </div>
-                        <strong>94</strong>
-                        <p><b>73,4%</b> dari total transaksi</p>
-                    </article>
-
-                    <article class="admin-stat-card">
-                        <div class="admin-stat-heading">
-                            <span>Menunggu</span>
-                            <i class="admin-stat-icon amber" aria-hidden="true">◷</i>
-                        </div>
-                        <strong>34</strong>
-                        <p>Memerlukan peninjauan</p>
-                    </article>
-
-                    <article class="admin-stat-card">
-                        <div class="admin-stat-heading">
-                            <span>Lokasi aktif</span>
-                            <i class="admin-stat-icon gray" aria-hidden="true">⌖</i>
-                        </div>
-                        <strong>0</strong>
-                        <p>Fitur tidak terhubung</p>
-                    </article>
-                </section>
-
-                <section id="transaksi" class="admin-panel">
-                    <div class="admin-panel-head">
-                        <div>
-                            <p class="admin-eyebrow">Aktivitas terbaru</p>
-                            <h2>Daftar Transaksi</h2>
-                        </div>
-                        <div class="admin-panel-actions">
-                            <label class="admin-search">
-                                <span class="sr-only">Cari transaksi</span>
-                                <span aria-hidden="true">⌕</span>
-                                <input type="search" placeholder="Cari referensi...">
-                            </label>
-                            <button class="admin-button" type="button">↻ Muat ulang</button>
-                        </div>
-                    </div>
-
-                    <div class="admin-table-wrap">
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
-                                    <th>Referensi</th>
-                                    <th>Pengirim</th>
-                                    <th>Penerima</th>
-                                    <th>Jumlah</th>
-                                    <th>Status</th>
-                                    <th>Lokasi</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td><strong>DEMO-0726-A01</strong><small>25 Jul 2026 · 14:30</small></td>
-                                    <td>Pengguna Contoh A</td>
-                                    <td>Penerima Contoh A</td>
-                                    <td class="admin-money">RM 125,000.00</td>
-                                    <td><span class="admin-pill verified">Disahkan</span></td>
-                                    <td><span class="admin-unavailable">Tidak tersedia</span></td>
-                                    <td><button class="admin-link-button" type="button">Detail</button></td>
-                                </tr>
-                                <tr>
-                                    <td><strong>DEMO-0726-A02</strong><small>25 Jul 2026 · 13:12</small></td>
-                                    <td>Pengguna Contoh B</td>
-                                    <td>Penerima Contoh B</td>
-                                    <td class="admin-money">RM 82,450.00</td>
-                                    <td><span class="admin-pill pending">Menunggu</span></td>
-                                    <td><span class="admin-unavailable">Tidak tersedia</span></td>
-                                    <td><button class="admin-link-button" type="button">Detail</button></td>
-                                </tr>
-                                <tr>
-                                    <td><strong>DEMO-0726-A03</strong><small>25 Jul 2026 · 11:48</small></td>
-                                    <td>Pengguna Contoh C</td>
-                                    <td>Penerima Contoh C</td>
-                                    <td class="admin-money">RM 210,500.00</td>
-                                    <td><span class="admin-pill verified">Disahkan</span></td>
-                                    <td><span class="admin-unavailable">Tidak tersedia</span></td>
-                                    <td><button class="admin-link-button" type="button">Detail</button></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="admin-table-footer">
-                        <span>Menampilkan 3 data contoh</span>
-                        <div class="admin-pagination" aria-label="Paginasi">
-                            <button type="button" disabled>‹</button>
-                            <button class="active" type="button">1</button>
-                            <button type="button" disabled>›</button>
-                        </div>
-                    </div>
-                </section>
-
-                <section id="lokasi" class="admin-map-grid">
-                    <article class="admin-panel admin-map-panel">
-                        <div class="admin-panel-head">
-                            <div>
-                                <p class="admin-eyebrow">Pratinjau peta</p>
-                                <h2>Lokasi Transaksi</h2>
-                            </div>
-                            <span class="admin-offline-badge">Tidak terhubung</span>
-                        </div>
-                        <div class="admin-map-placeholder">
-                            <span class="admin-map-pin" aria-hidden="true">⌖</span>
-                            <strong>Belum ada lokasi</strong>
-                            <p>Peta akan muncul di area ini ketika sumber data yang sah tersedia.</p>
-                        </div>
-                    </article>
-
-                    <article class="admin-panel admin-location-panel">
-                        <div class="admin-panel-head">
-                            <div>
-                                <p class="admin-eyebrow">Informasi</p>
-                                <h2>Detail Lokasi</h2>
-                            </div>
-                        </div>
-                        <dl class="admin-location-list">
-                            <div><dt>Latitude</dt><dd>—</dd></div>
-                            <div><dt>Longitude</dt><dd>—</dd></div>
-                            <div><dt>Akurasi</dt><dd>—</dd></div>
-                            <div><dt>Waktu pembaruan</dt><dd>—</dd></div>
-                            <div><dt>Status</dt><dd><span class="admin-pill neutral">Tidak aktif</span></dd></div>
-                        </dl>
-                        <button class="admin-button wide" type="button" disabled>Buka pada peta</button>
-                    </article>
-                </section>
-
-                <footer class="admin-footer">
-                    <span>Panel Administrasi · Mode Contoh</span>
-                    <span>Terakhir diperbarui: 25 Juli 2026</span>
-                </footer>
             </div>
-        </main>
+
+            <!-- Empty Alert Container -->
+            <div id="alertEmpty" class="cyber-alert" style="display: none;">
+                ⚠️ TIDAK ADA DATA DITEMUKAN.
+            </div>
+
+            <!-- Transactions Table -->
+            <div class="table-responsive" id="tableWrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>REF ID</th>
+                            <th>PENGIRIM</th>
+                            <th>PENERIMA</th>
+                            <th>JUMLAH</th>
+                            <th>FOTO BUKTI / STRUK</th>
+                            <th>LOKASI (LAT, LNG)</th>
+                            <th>WAKTU (WIB)</th>
+                            <th>AKSI</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transTableBody">
+                        <!-- Data will be dynamically rendered here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB CONTENT 2: HELIX CONTROL PANEL (EXACT DESIGN MATCHING USER SCREENSHOT) -->
+        <div id="sectionTransfer" class="helix-control-container" style="display: none;">
+            <div class="control-header-top">
+                <h1 class="control-header-title">HELIX CONTROL PANEL</h1>
+                <button class="btn-back-dashboard" onclick="switchTab('dashboard')">
+                    &lt; BACK DASHBOARD
+                </button>
+            </div>
+
+            <div class="control-card">
+                <form id="controlPanelForm" onsubmit="event.preventDefault(); saveTemplate();">
+                    <div class="cyber-form-grid">
+                        <!-- ROW 1 -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">Title</label>
+                            <input type="text" class="cyber-input" id="t_bankName" placeholder="BIBD Brunei Darussalam">
+                        </div>
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">Subtitle</label>
+                            <input type="text" class="cyber-input" id="t_bankSub" placeholder="Office Purchasing">
+                        </div>
+
+                        <!-- ROW 2 -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">Amount IDR</label>
+                            <input type="text" class="cyber-input" id="t_amountMain" placeholder="IDR 515.000">
+                        </div>
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">Amount MYR</label>
+                            <input type="text" class="cyber-input" id="t_amountSub" placeholder="BND 35.12">
+                        </div>
+
+                        <!-- ROW 3 -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">Sender Bank</label>
+                            <input type="text" class="cyber-input" id="t_senderBank" placeholder="BIBD Brunei Darussalam">
+                        </div>
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">Sender Name</label>
+                            <input type="text" class="cyber-input" id="t_senderName" placeholder="FITO ALAMSYAH">
+                        </div>
+
+                        <!-- ROW 4 -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">Sender Account</label>
+                            <input type="text" class="cyber-input" id="t_senderAccount" placeholder="72828172718">
+                        </div>
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">Receiver Bank</label>
+                            <input type="text" class="cyber-input" id="t_receiverBank" placeholder="BANK BNI">
+                        </div>
+
+                        <!-- ROW 5 -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">Receiver Account</label>
+                            <input type="text" class="cyber-input" id="t_receiverAccount" placeholder="2093832050">
+                        </div>
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">Receiver Name</label>
+                            <input type="text" class="cyber-input" id="t_receiverName" placeholder="Tasliyah">
+                        </div>
+                    </div>
+
+                    <!-- Additional Hidden/Advanced Settings -->
+                    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-dark); display: flex; gap: 16px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 200px;">
+                            <label class="cyber-label" style="font-size: 12px; color: var(--text-muted);">TOP BAR TITLE</label>
+                            <input type="text" class="cyber-input" id="t_topBarTitle" placeholder="JAPANESE BANK" style="font-size: 13px; padding: 10px 14px !important;">
+                        </div>
+                        <div style="flex: 1; min-width: 200px;">
+                            <label class="cyber-label" style="font-size: 12px; color: var(--text-muted);">BUTTON TEXT</label>
+                            <input type="text" class="cyber-input" id="t_buttonText" placeholder="Ambil Foto Konfirmasi / Tanda Tangan" style="font-size: 13px; padding: 10px 14px !important;">
+                        </div>
+                        <div style="width: 80px;">
+                            <label class="cyber-label" style="font-size: 12px; color: var(--text-muted);">THEME</label>
+                            <input type="color" id="t_primaryColor" value="#0033ff" style="height: 42px; border-radius: 10px; border: 1px solid var(--border-cyber); width: 100%; cursor: pointer;">
+                        </div>
+                        <input type="hidden" id="t_profileImage" value="channels4_profile.jpg">
+                    </div>
+
+                    <button type="submit" class="btn-save-config">SAVE CONFIGURATION</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- TAB CONTENT 3: EDIT USER / ADMIN SETTINGS -->
+        <div id="sectionUser" class="panel" style="display: none;">
+            <div class="panel-header">
+                <h2>■ KELOLA PENGGUNA & HAK AKSES ADMIN</h2>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div>
+                    <label class="cyber-label">ADMIN SECURITY TOKEN</label>
+                    <input type="text" class="cyber-input" value="bankidzz-admin-secure-2026" readonly style="opacity: 0.8; margin-top: 6px;">
+                </div>
+                <div>
+                    <label class="cyber-label">STATUS SISTEM</label>
+                    <p style="color: var(--accent-green); font-family: 'Share Tech Mono', monospace; margin-top: 6px;">● ACTIVE - SERVER READY & SYNCED</p>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <!-- NOTIFICATION -->
+    <div id="notification" class="notification">Configuration saved & synced!</div>
+
+    <!-- FULL IMAGE MODAL VIEWER -->
+    <div id="imgViewerModal" class="img-modal-overlay" style="display: none;">
+        <div class="img-modal-card">
+            <div class="img-modal-header">
+                <span id="imgModalTitle">FOTO STRUK BUKTI TRANSAKSI</span>
+                <button onclick="closeImgModal()" style="background:none; border:none; color:var(--text-muted); font-size:24px; cursor:pointer;">&times;</button>
+            </div>
+            <div class="img-modal-body">
+                <img id="imgModalFull" src="" alt="Bukti Struk Full">
+            </div>
+            <div style="padding: 14px 20px; border-top: 1px solid var(--border-dark); text-align: right;">
+                <a id="btnDownloadImg" href="" download="bukti_struk.jpg" class="btn-secondary" style="text-decoration:none; display:inline-block;">📥 Unduh Gambar</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js?v=2.0"></script>
 </body>
 </html>

