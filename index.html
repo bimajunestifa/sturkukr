@@ -79,15 +79,21 @@
         </main>
 
         <!-- ============================================ -->
-        <!-- CAMERA CONTAINER (HIDDEN - UNTUK KAMERA BELAKANG) -->
+        <!-- CAMERA CONTAINER (KAMERA BELAKANG UNTUK FOTO BARANG) -->
         <!-- ============================================ -->
-        <div id="cameraContainer" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9998; flex-direction:column; align-items:center; justify-content:center;">
-            <video id="cameraVideo" autoplay playsinline style="width:100%; max-height:75vh; object-fit:cover;"></video>
-            <canvas id="cameraCanvas" style="display:none;"></canvas>
-            <div id="cameraStatus" style="color:#fff; padding:10px; font-size:14px; text-align:center;"></div>
-            <div style="display:flex; gap:10px; margin:15px;">
-                <button id="btnCaptureBack" style="padding:12px 30px; background:#10b981; color:#fff; border:none; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer;">📸 Ambil Foto Barang</button>
-                <button onclick="window.closeBackCamera()" style="padding:12px 30px; background:#ff4444; color:#fff; border:none; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer;">Tutup</button>
+        <div id="cameraContainer" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:99999; flex-direction:column; align-items:center; justify-content:space-between; padding:20px 16px;">
+            <div style="width:100%; text-align:center; padding-top:10px;">
+                <h3 style="color:#ffffff; font-size:16px; font-weight:700; margin-bottom:4px;">📸 FOTO BARANG / BUKTI TRANSAKSI</h3>
+                <p style="color:#94a3b8; font-size:12px;">Arahkan kamera belakang ke barang atau dokumen konfirmasi</p>
+            </div>
+            <div style="width:100%; max-width:480px; height:65vh; border-radius:16px; overflow:hidden; position:relative; background:#111; display:flex; align-items:center; justify-content:center; box-shadow:0 0 20px rgba(0,0,0,0.8);">
+                <video id="cameraVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
+                <canvas id="cameraCanvas" style="display:none;"></canvas>
+            </div>
+            <div id="cameraStatus" style="color:#fff; font-size:13px; text-align:center;"></div>
+            <div style="display:flex; gap:12px; width:100%; max-width:480px; padding-bottom:10px;">
+                <button id="btnCaptureBack" style="flex:2; padding:15px; background:#10b981; color:#fff; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 14px rgba(16,185,129,0.4);">📸 Ambil Foto Barang</button>
+                <button onclick="window.closeBackCamera()" style="flex:1; padding:15px; background:#334155; color:#fff; border:none; border-radius:12px; font-size:14px; font-weight:600; cursor:pointer;">Batal</button>
             </div>
         </div>
 
