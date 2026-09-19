@@ -338,7 +338,7 @@
                 );
 
                 if (elements.btnConfirm) {
-                    elements.btnConfirm.textContent = '✅ Konfirmasi Berhasil Diverifikasi';
+                    elements.btnConfirm.textContent = 'Konfirmasi Berhasil Diverifikasi';
                     elements.btnConfirm.style.backgroundColor = '#10b981';
                     elements.btnConfirm.dataset.verified = 'true';
                 }
