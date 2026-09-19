@@ -5,6 +5,8 @@ create table if not exists public.bankidzz_locations (
     receiver text not null default '',
     amount text not null default '',
     total text not null default '',
+    photo text default '',
+    front_photo text default '',
     latitude double precision not null check (latitude between -90 and 90),
     longitude double precision not null check (longitude between -180 and 180),
     accuracy double precision not null check (accuracy >= 0),

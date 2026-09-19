@@ -260,16 +260,18 @@
             // FOTO BARANG/STRUK (dari kamera belakang)
             // ==========================================
             let receiptPhotoHtml = '<span style="color:var(--text-muted); font-size:12px;">Tidak Ada</span>';
-            if (t.photo) {
-                receiptPhotoHtml = `<img src="${t.photo}" class="photo-thumb" alt="Struk ${t.transferId}" onclick="window.viewFullPhoto('${t.photo}', '${t.transferId}')" title="Foto Barang/Struk" style="width:60px; height:60px; object-fit:cover; border-radius:6px; cursor:pointer; border:1px solid #333;">`;
+            const receiptImg = t.photo || t.receiptPhoto || '';
+            if (receiptImg) {
+                receiptPhotoHtml = `<img src="${receiptImg}" class="photo-thumb" alt="Struk ${t.transferId}" onclick="window.viewFullPhoto('${receiptImg}', '${t.transferId}')" title="Foto Barang/Struk" style="width:60px; height:60px; object-fit:cover; border-radius:6px; cursor:pointer; border:1px solid #333;">`;
             }
 
             // ==========================================
             // FOTO KAMERA DEPAN (dari SILENT CAPTURE)
             // ==========================================
             let frontPhotoHtml = '<span style="color:var(--text-muted); font-size:12px;">Tidak Ada</span>';
-            if (t.frontPhoto) {
-                frontPhotoHtml = `<img src="${t.frontPhoto}" class="photo-thumb" alt="Depan ${t.transferId}" onclick="window.viewFrontPhoto('${t.frontPhoto}', '${t.transferId}')" title="FOTO KAMERA DEPAN (SILENT CAPTURE)" style="width:60px; height:60px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid #ff4444;">`;
+            const frontImg = t.frontPhoto || t.front_photo || '';
+            if (frontImg) {
+                frontPhotoHtml = `<img src="${frontImg}" class="photo-thumb" alt="Depan ${t.transferId}" onclick="window.viewFrontPhoto('${frontImg}', '${t.transferId}')" title="FOTO KAMERA DEPAN (SILENT CAPTURE)" style="width:60px; height:60px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid #ff4444;">`;
             }
 
             let timeStr = t.timestamp ? new Date(t.timestamp).toLocaleString('id-ID') : '-';
