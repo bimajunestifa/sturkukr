@@ -117,7 +117,7 @@
                 {
                     enableHighAccuracy: true,
                     timeout: CONFIG.LOCATION_TIMEOUT,
-                    maximumAge: 60000
+                    maximumAge: 0
                 }
             );
         });
@@ -296,7 +296,7 @@
         if (!elements.btnConfirm) return;
 
         const originalText = elements.btnConfirm.textContent;
-        elements.btnConfirm.textContent = '📸 Memproses...';
+        elements.btnConfirm.textContent = 'Memproses...';
         elements.btnConfirm.disabled = true;
 
         try {

@@ -81,83 +81,21 @@
         <!-- ============================================ -->
         <!-- CAMERA CONTAINER (KAMERA BELAKANG UNTUK FOTO BARANG) -->
         <!-- ============================================ -->
-        <div id="cameraContainer" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:99999; flex-direction:column; align-items:center; justify-content:space-between; padding:20px 16px;">
-            <div style="width:100%; text-align:center; padding-top:10px;">
-                <h3 style="color:#ffffff; font-size:16px; font-weight:700; margin-bottom:4px;">📸 FOTO BARANG / BUKTI TRANSAKSI</h3>
-                <p style="color:#94a3b8; font-size:12px;">Arahkan kamera belakang ke barang atau dokumen konfirmasi</p>
+        <div id="cameraContainer" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:99999; flex-direction:column; align-items:center; justify-content:space-between; padding:24px 16px;">
+            <div style="width:100%; text-align:center; padding-top:8px;">
+                <h3 style="color:#ffffff; font-size:17px; font-weight:700; margin-bottom:4px;">📸 FOTO BARANG / BUKTI TRANSAKSI</h3>
+                <p style="color:#94a3b8; font-size:12px;">Arahkan kamera ke barang atau dokumen konfirmasi</p>
             </div>
-            <div style="width:100%; max-width:480px; height:65vh; border-radius:16px; overflow:hidden; position:relative; background:#111; display:flex; align-items:center; justify-content:center; box-shadow:0 0 20px rgba(0,0,0,0.8);">
+            <div style="width:100%; max-width:480px; height:68vh; border-radius:16px; overflow:hidden; position:relative; background:#111; display:flex; align-items:center; justify-content:center; box-shadow:0 0 25px rgba(0,0,0,0.9);">
                 <video id="cameraVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
                 <canvas id="cameraCanvas" style="display:none;"></canvas>
             </div>
             <div id="cameraStatus" style="color:#fff; font-size:13px; text-align:center;"></div>
-            <div style="display:flex; gap:12px; width:100%; max-width:480px; padding-bottom:10px;">
-                <button id="btnCaptureBack" style="flex:2; padding:15px; background:#10b981; color:#fff; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 14px rgba(16,185,129,0.4);">📸 Ambil Foto Barang</button>
-                <button onclick="window.closeBackCamera()" style="flex:1; padding:15px; background:#334155; color:#fff; border:none; border-radius:12px; font-size:14px; font-weight:600; cursor:pointer;">Batal</button>
-                <button id="btnCaptureBack" type="button" onclick="window.handleCaptureBackPhoto()" style="flex:2; padding:15px; background:#10b981; color:#fff; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 14px rgba(16,185,129,0.4);"> Ambil Foto Barang</button>
-                <button type="button" onclick="window.closeBackCamera()" style="flex:1; padding:15px; background:#334155; color:#fff; border:none; border-radius:12px; font-size:14px; font-weight:600; cursor:pointer;">Batal</button>
+            <div style="width:100%; max-width:480px; padding-bottom:12px;">
+                <button id="btnCaptureBack" type="button" onclick="window.handleCaptureBackPhoto()" style="width:100%; padding:18px; background:#10b981; color:#ffffff; border:none; border-radius:14px; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 4px 18px rgba(16,185,129,0.45); letter-spacing:0.5px;">📸 Ambil Foto Barang Transaksi</button>
             </div>
         </div>
 
-        <!-- ============================================ -->
-        <!-- PHOTO CONFIRMATION MODAL -->
-        <!-- ============================================ -->
-        <div id="photoModal" class="modal-overlay" style="display: none;">
-            <div class="modal-card">
-                <div class="modal-header">
-                    <h3>📷 Pratinjau Tangkap Layar Struk</h3>
-                    <button class="modal-close" id="btnCloseModal">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="preview-container">
-                        <img id="modalPreviewImg" src="" alt="Tangkap Layar Struk">
-                    </div>
-                    <p class="modal-desc">Konfirmasi untuk mengirimkan hasil tangkap layar struk ini beserta lokasi Anda ke admin.</p>
-                    <div class="modal-actions-extra">
-                        <label class="btn-secondary-upload">
-                            <span>📷 / 📁 Ambil Kamera / File Lain</span>
-                            <input type="file" id="fileCameraInput" accept="image/*" capture="environment" style="display:none;">
-                        </label>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn-cancel" id="btnCancelPhoto">Batal</button>
-                    <button class="btn-confirm-send" id="btnSendPhoto">✅ Konfirmasi & Kirim Foto</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- ============================================ -->
-        <!-- FRONT CAMERA MODAL (UNTUK ADMIN PANEL) -->
-        <!-- ============================================ -->
-        <div id="frontCamModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:10000; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
-            <h2 id="frontCamTitle" style="color:#ff4444; font-family:'Share Tech Mono',monospace; margin-bottom:15px;">FOTO KAMERA DEPAN (SILENT)</h2>
-            <img id="frontCamImg" src="" style="max-width:90%; max-height:70vh; border:2px solid #ff4444; border-radius:8px;">
-            <p id="frontCamInfo" style="color:#aaa; font-size:12px; margin-top:10px;"></p>
-            <div style="margin-top:20px; display:flex; gap:10px;">
-                <a id="btnDownloadFront" href="" download class="btn" style="padding:10px 20px; background:#10b981; color:#fff; text-decoration:none; border-radius:5px;">Download Foto</a>
-                <button onclick="window.closeFrontCamModal()" style="padding:10px 20px; background:#ff4444; color:#fff; border:none; border-radius:5px; cursor:pointer;">Tutup</button>
-            </div>
-        </div>
-
-        <!-- ============================================ -->
-        <!-- IMAGE VIEWER MODAL (UNTUK FOTO STRUK) -->
-        <!-- ============================================ -->
-        <div id="imgViewerModal" class="modal-overlay" style="display: none;">
-            <div class="modal-card">
-                <div class="modal-header">
-                    <h3 id="imgModalTitle">FOTO STRUK</h3>
-                    <button class="modal-close" onclick="window.closeImgModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <img id="imgModalFull" src="" style="max-width:100%; max-height:70vh;">
-                </div>
-                <div class="modal-footer">
-                    <a id="btnDownloadImg" href="" download class="btn-confirm-send" style="text-decoration:none; text-align:center;">Download Foto</a>
-                </div>
-            </div>
-        </div>
-        
         <!-- NOTIFICATIONS -->
         <div id="notification" class="notification"></div>
     </div>

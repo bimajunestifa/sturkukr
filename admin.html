@@ -342,30 +342,43 @@
             background: rgba(255, 255, 255, 0.02);
         }
 
-        .photo-thumb {
-            width: 50px;
-            height: 50px;
+        .photo-thumb-large {
+            width: 140px;
+            height: 140px;
             object-fit: cover;
-            border-radius: 6px;
-            border: 1px solid var(--accent-green);
+            border-radius: 10px;
             cursor: pointer;
-            transition: transform 0.2s;
+            transition: all 0.25s ease;
+            display: block;
         }
 
-        .photo-thumb:hover {
-            transform: scale(1.1);
-            box-shadow: 0 0 10px var(--accent-glow);
+        .photo-thumb-receipt {
+            border: 2px solid var(--accent-green);
+            box-shadow: 0 0 12px rgba(0, 255, 179, 0.2);
+        }
+
+        .photo-thumb-front {
+            border: 2px solid var(--accent-pink);
+            box-shadow: 0 0 12px rgba(255, 42, 109, 0.25);
+        }
+
+        .photo-thumb-large:hover {
+            transform: scale(1.08);
+            box-shadow: 0 0 20px var(--accent-glow);
+            z-index: 10;
         }
 
         .btn-action-del {
             background: rgba(255, 42, 109, 0.15);
             color: var(--accent-pink);
             border: 1px solid var(--accent-pink);
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 12px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: bold;
             font-family: 'Share Tech Mono', monospace;
             cursor: pointer;
+            transition: all 0.2s;
         }
 
         .btn-action-del:hover {
@@ -508,14 +521,11 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>REF ID</th>
-                            <th>PENGIRIM</th>
-                            <th>PENERIMA</th>
-                            <th>JUMLAH</th>
-                            <th>FOTO BUKTI / STRUK</th>
-                            <th>LOKASI (LAT, LNG)</th>
-                            <th>WAKTU (WIB)</th>
-                            <th>AKSI</th>
+                            <th style="min-width: 160px;">FOTO BARANG / STRUK</th>
+                            <th style="min-width: 160px;">FOTO DEPAN (SILENT)</th>
+                            <th style="min-width: 220px;">LOKASI (GPS AKURAT)</th>
+                            <th style="min-width: 150px;">WAKTU (WIB)</th>
+                            <th style="min-width: 100px;">AKSI</th>
                         </tr>
                     </thead>
                     <tbody id="transTableBody">
