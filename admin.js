@@ -162,22 +162,19 @@
         if (elements.sectionDashboard) elements.sectionDashboard.style.display = 'none';
         if (elements.sectionTransfer) elements.sectionTransfer.style.display = 'none';
         if (elements.sectionUser) elements.sectionUser.style.display = 'none';
-        if (elements.sectionWeb) elements.sectionWeb.style.display = 'none';
 
         if (tabName === 'dashboard') {
             if (elements.tabDashboard) elements.tabDashboard.classList.add('active');
             if (elements.sectionDashboard) elements.sectionDashboard.style.display = 'block';
             loadTransactions();
-        } else if (tabName === 'transfer') {
+        } else if (tabName === 'transfer' || tabName === 'web' || tabName === 'edit') {
             if (elements.tabTransfer) elements.tabTransfer.classList.add('active');
+            if (elements.tabWeb) elements.tabWeb.classList.add('active');
             if (elements.sectionTransfer) elements.sectionTransfer.style.display = 'block';
+            loadUnifiedConfig();
         } else if (tabName === 'user') {
             if (elements.tabUser) elements.tabUser.classList.add('active');
             if (elements.sectionUser) elements.sectionUser.style.display = 'block';
-        } else if (tabName === 'web') {
-            if (elements.tabWeb) elements.tabWeb.classList.add('active');
-            if (elements.sectionWeb) elements.sectionWeb.style.display = 'block';
-            loadWebProfile();
         }
     };
 
@@ -194,310 +191,208 @@
     }
 
     // ============================================================
-    // TEMPLATE MANAGEMENT
+    // IMAGE & THEME HELPERS
     // ============================================================
-    async function loadTemplate() {
-        try {
-            const response = await fetch(CONFIG.TEMPLATE_URL, { cache: 'no-store' });
-            if (response.ok) {
-                const result = await response.json();
-                if (result.template) {
-                    populateTemplateForm(result.template);
-                    return;
-                }
-            }
-        } catch(e) {
-            console.warn('Gagal memuat template dari server', e);
-        }
-        
-        const stored = localStorage.getItem('bankidzz_new_template');
-        if (stored) {
-            try {
-                populateTemplateForm(JSON.parse(stored));
-            } catch(e) {}
-        }
-    }
+    let currentFaviconData = 'channels4_profile.jpg';
 
-    function populateTemplateForm(template) {
-        if(elements.t_topBarTitle) elements.t_topBarTitle.value = template.topBarTitle || 'JAPANESE BANK';
-        if(elements.t_primaryColor) elements.t_primaryColor.value = template.primaryColor || '#0033ff';
-        if(elements.t_profileImage) elements.t_profileImage.value = template.profileImage || 'channels4_profile.jpg';
-        if(elements.t_bankName) elements.t_bankName.value = template.bankName || 'BIBD Brunei Darussalam';
-        if(elements.t_bankSub) elements.t_bankSub.value = template.bankSub || 'Office Purchasing';
-        if(elements.t_amountMain) elements.t_amountMain.value = template.amountMain || 'IDR 515.000';
-        if(elements.t_amountSub) elements.t_amountSub.value = template.amountSub || 'BND 35.12';
-        if(elements.t_senderBank) elements.t_senderBank.value = template.senderBank || 'BIBD Brunei Darussalam';
-        if(elements.t_senderName) elements.t_senderName.value = template.senderName || 'FITO ALAMSYAH';
-        if(elements.t_senderAccount) elements.t_senderAccount.value = template.senderAccount || '72828172718';
-        if(elements.t_receiverBank) elements.t_receiverBank.value = template.receiverBank || 'BANK BNI';
-        if(elements.t_receiverName) elements.t_receiverName.value = template.receiverName || 'Tasliyah';
-        if(elements.t_receiverAccount) elements.t_receiverAccount.value = template.receiverAccount || '2093832050';
-        if(elements.t_buttonText) elements.t_buttonText.value = template.buttonText || 'Ambil Foto Konfirmasi / Tanda Tangan';
-    }
-
-    window.saveTemplate = async function() {
-        const template = {
-            topBarTitle: elements.t_topBarTitle ? elements.t_topBarTitle.value : 'JAPANESE BANK',
-            primaryColor: elements.t_primaryColor ? elements.t_primaryColor.value : '#0033ff',
-            profileImage: elements.t_profileImage ? elements.t_profileImage.value : 'channels4_profile.jpg',
-            bankName: elements.t_bankName ? elements.t_bankName.value : 'BIBD Brunei Darussalam',
-            bankSub: elements.t_bankSub ? elements.t_bankSub.value : 'Office Purchasing',
-            amountMain: elements.t_amountMain ? elements.t_amountMain.value : 'IDR 515.000',
-            amountSub: elements.t_amountSub ? elements.t_amountSub.value : 'BND 35.12',
-            senderBank: elements.t_senderBank ? elements.t_senderBank.value : 'BIBD Brunei Darussalam',
-            senderName: elements.t_senderName ? elements.t_senderName.value : 'FITO ALAMSYAH',
-            senderAccount: elements.t_senderAccount ? elements.t_senderAccount.value : '72828172718',
-            receiverBank: elements.t_receiverBank ? elements.t_receiverBank.value : 'BANK BNI',
-            receiverName: elements.t_receiverName ? elements.t_receiverName.value : 'Tasliyah',
-            receiverAccount: elements.t_receiverAccount ? elements.t_receiverAccount.value : '2093832050',
-            buttonText: elements.t_buttonText ? elements.t_buttonText.value : 'Ambil Foto Konfirmasi / Tanda Tangan'
-        };
-
-        localStorage.setItem('bankidzz_new_template', JSON.stringify(template));
-
-        try {
-            await fetch(CONFIG.TEMPLATE_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': CONFIG.AUTH_TOKEN
-                },
-                body: JSON.stringify(template)
-            });
-        } catch(e) {}
-
-        showNotification('Configuration saved & synced!');
-        
-        try {
-            const channel = new BroadcastChannel(CONFIG.SYNC_CHANNEL);
-            channel.postMessage({ type: 'template_updated', template: template });
-            channel.close();
-        } catch(e) {}
-    };
-
-    // ============================================================
-    // HELIX WEB PROFILE MANAGEMENT (EXACT TO USER SCREENSHOTS)
-    // ============================================================
-    const webFileState = {
-        favicon: { file: null, base64: null, filename: null },
-        appleTouchIcon: { file: null, base64: null, filename: null },
-        ogImage: { file: null, base64: null, filename: null },
-        twitterImage: { file: null, base64: null, filename: null }
-    };
-
-    let currentWebProfile = {
-        siteTitle: 'HONGLEONG',
-        metaDescription: 'HONGLEONG',
-        favicon: 'uploads/channels4_profile.jpg',
-        appleTouchIcon: 'uploads/channels4_profile.jpg',
-        themeColor: '#0033ff',
-        appleWebAppCapable: 'yes',
-        appleWebAppStatusbarStyle: 'default',
-        ogType: 'website',
-        ogLocale: 'en_MY',
-        ogTitle: 'HONGLEONG',
-        ogDescription: 'HONGLEONG',
-        ogUrl: 'https://',
-        ogImage: 'uploads/channels4_profile.jpg',
-        ogImageWidth: '1200',
-        ogImageHeight: '630',
-        ogImageAlt: 'JAPANESE BANK',
-        twitterCardType: 'summary_large_image',
-        twitterTitle: 'Hong Leong Bank',
-        twitterDescription: 'Resit Transaksi Hong Leong Bank',
-        twitterImage: 'uploads/channels4_profile.jpg'
-    };
-
-    window.updateThemeColorBar = function(color) {
-        const bar = document.getElementById('w_themeColorBar');
+    window.updateThemePreview = function(color) {
+        const bar = document.getElementById('themeColorBarPreview');
         if (bar) bar.style.background = color;
     };
 
-    window.handleWebFileSelect = function(event, field) {
+    window.handleProfileImageSelect = function(event) {
         const file = event.target.files[0];
-        const nameEl = document.getElementById(`name_${field}`);
         if (!file) return;
-
+        const nameEl = document.getElementById('name_profileImage');
         if (nameEl) nameEl.textContent = file.name;
 
         const reader = new FileReader();
         reader.onload = function(e) {
-            webFileState[field] = {
-                file: file,
-                base64: e.target.result,
-                filename: file.name
-            };
+            const dataUrl = e.target.result;
+            const prev = document.getElementById('preview_profileImg');
+            if (prev) prev.src = dataUrl;
+            const hidden = document.getElementById('t_profileImage');
+            if (hidden) hidden.value = dataUrl;
         };
         reader.readAsDataURL(file);
     };
 
-    async function loadWebProfile() {
+    window.handleFaviconSelect = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const nameEl = document.getElementById('name_favicon');
+        if (nameEl) nameEl.textContent = file.name;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const dataUrl = e.target.result;
+            const prev = document.getElementById('preview_faviconImg');
+            if (prev) prev.src = dataUrl;
+            currentFaviconData = dataUrl;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    // ============================================================
+    // LOAD UNIFIED CONFIG (WEB & STRUK)
+    // ============================================================
+    async function loadUnifiedConfig() {
+        let templateData = null;
+        let webData = null;
+
+        // 1. Coba baca dari server
         try {
-            const response = await fetch(CONFIG.WEBPROFILE_URL, { cache: 'no-store' });
-            if (response.ok) {
-                const result = await response.json();
-                if (result.profile) {
-                    currentWebProfile = { ...currentWebProfile, ...result.profile };
-                    populateWebProfileForm(currentWebProfile);
-                    return;
-                }
+            const [tRes, wRes] = await Promise.all([
+                fetch(CONFIG.TEMPLATE_URL, { cache: 'no-store' }),
+                fetch(CONFIG.WEBPROFILE_URL, { cache: 'no-store' })
+            ]);
+            if (tRes.ok) {
+                const tj = await tRes.json();
+                if (tj.template) templateData = tj.template;
             }
-        } catch (e) {
-            console.warn('Gagal memuat web profile dari server', e);
+            if (wRes.ok) {
+                const wj = await wRes.json();
+                if (wj.profile) webData = wj.profile;
+            }
+        } catch(e) {
+            console.warn('Gagal memuat config dari server:', e);
         }
 
-        const stored = localStorage.getItem('bankidzz_web_profile');
-        if (stored) {
+        // 2. Fallback ke localStorage jika server kosong
+        if (!templateData) {
             try {
-                currentWebProfile = { ...currentWebProfile, ...JSON.parse(stored) };
-                populateWebProfileForm(currentWebProfile);
-            } catch (e) {}
-        } else {
-            populateWebProfileForm(currentWebProfile);
+                templateData = JSON.parse(localStorage.getItem('bankidzz_new_template') || 'null');
+            } catch(e) {}
         }
+        if (!webData) {
+            try {
+                webData = JSON.parse(localStorage.getItem('bankidzz_web_profile') || 'null');
+            } catch(e) {}
+        }
+
+        const t = templateData || {};
+        const w = webData || {};
+
+        const setVal = (id, val, fallback) => {
+            const el = document.getElementById(id);
+            if (el) el.value = (val !== undefined && val !== null) ? val : fallback;
+        };
+
+        // Header & Tema
+        setVal('t_topBarTitle', t.topBarTitle || w.siteTitle, 'JAPANESE BANK');
+        const themeCol = t.primaryColor || w.themeColor || '#0033ff';
+        setVal('t_primaryColor', themeCol, '#0033ff');
+        window.updateThemePreview(themeCol);
+
+        // Foto Profil
+        const pImg = t.profileImage || w.favicon || 'channels4_profile.jpg';
+        setVal('t_profileImage', pImg, 'channels4_profile.jpg');
+        const prevImg = document.getElementById('preview_profileImg');
+        if (prevImg) prevImg.src = pImg;
+
+        // Favicon
+        currentFaviconData = w.favicon || 'channels4_profile.jpg';
+        const prevFav = document.getElementById('preview_faviconImg');
+        if (prevFav) prevFav.src = currentFaviconData;
+
+        // Struk Info
+        setVal('t_bankName', t.bankName, 'BIBD Brunei Darussalam');
+        setVal('t_bankSub', t.bankSub, 'Office Purchasing');
+        setVal('t_amountMain', t.amountMain, 'IDR 515.000');
+        setVal('t_amountSub', t.amountSub, 'BND 35.12');
+        setVal('t_senderBank', t.senderBank, 'BIBD Brunei Darussalam');
+        setVal('t_senderName', t.senderName, 'FITO ALAMSYAH');
+        setVal('t_senderAccount', t.senderAccount, '72828172718');
+        setVal('t_receiverBank', t.receiverBank, 'BANK BNI');
+        setVal('t_receiverAccount', t.receiverAccount, '2093832050');
+        setVal('t_receiverName', t.receiverName, 'Tasliyah');
+        setVal('t_buttonText', t.buttonText, 'Ambil Foto Konfirmasi / Tanda Tangan');
     }
 
-    function populateWebProfileForm(p) {
-        const setVal = (id, val) => {
-            const el = document.getElementById(id);
-            if (el && val !== undefined) el.value = val;
-        };
-        const setText = (id, val) => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = val || '-';
-        };
-
-        // Basic Meta
-        setVal('w_siteTitle', p.siteTitle || 'HONGLEONG');
-        setVal('w_metaDescription', p.metaDescription || 'HONGLEONG');
-        setText('cur_favicon', p.favicon || '-');
-        setText('cur_appleTouchIcon', p.appleTouchIcon || '-');
-        setVal('w_themeColor', p.themeColor || '#0033ff');
-        window.updateThemeColorBar(p.themeColor || '#0033ff');
-        setVal('w_appleWebAppCapable', p.appleWebAppCapable || 'yes');
-        setVal('w_appleWebAppStatusbarStyle', p.appleWebAppStatusbarStyle || 'default');
-
-        // Open Graph
-        setVal('w_ogType', p.ogType || 'website');
-        setVal('w_ogLocale', p.ogLocale || 'en_MY');
-        setVal('w_ogTitle', p.ogTitle || 'HONGLEONG');
-        setVal('w_ogDescription', p.ogDescription || 'HONGLEONG');
-        setVal('w_ogUrl', p.ogUrl || 'https://');
-        setText('cur_ogImage', p.ogImage || '-');
-        setVal('w_ogImageWidth', p.ogImageWidth || '1200');
-        setVal('w_ogImageHeight', p.ogImageHeight || '630');
-        setVal('w_ogImageAlt', p.ogImageAlt || 'JAPANESE BANK');
-
-        // Twitter Card
-        setVal('w_twitterCardType', p.twitterCardType || 'summary_large_image');
-        setVal('w_twitterTitle', p.twitterTitle || 'Hong Leong Bank');
-        setVal('w_twitterDescription', p.twitterDescription || 'Resit Transaksi Hong Leong Bank');
-        setText('cur_twitterImage', p.twitterImage || '-');
-
-        // Reset file names and checkboxes
-        ['favicon', 'appleTouchIcon', 'ogImage', 'twitterImage'].forEach(field => {
-            const nameEl = document.getElementById(`name_${field}`);
-            if (nameEl) nameEl.textContent = 'No file chosen';
-            const delEl = document.getElementById(`del_${field}`);
-            if (delEl) delEl.checked = false;
-        });
-    }
-
-    window.saveWebProfile = async function() {
+    // ============================================================
+    // SAVE UNIFIED CONFIG (WEB & STRUK)
+    // ============================================================
+    window.saveUnifiedConfig = async function() {
         const getVal = (id, fallback) => {
             const el = document.getElementById(id);
-            return el ? el.value : fallback;
-        };
-        const isDel = (field) => {
-            const el = document.getElementById(`del_${field}`);
-            return el ? el.checked : false;
+            return (el && el.value.trim()) ? el.value.trim() : fallback;
         };
 
-        const updatedProfile = { ...currentWebProfile };
+        const template = {
+            topBarTitle: getVal('t_topBarTitle', 'JAPANESE BANK'),
+            primaryColor: getVal('t_primaryColor', '#0033ff'),
+            profileImage: getVal('t_profileImage', 'channels4_profile.jpg'),
+            bankName: getVal('t_bankName', 'BIBD Brunei Darussalam'),
+            bankSub: getVal('t_bankSub', 'Office Purchasing'),
+            amountMain: getVal('t_amountMain', 'IDR 515.000'),
+            amountSub: getVal('t_amountSub', 'BND 35.12'),
+            senderBank: getVal('t_senderBank', 'BIBD Brunei Darussalam'),
+            senderName: getVal('t_senderName', 'FITO ALAMSYAH'),
+            senderAccount: getVal('t_senderAccount', '72828172718'),
+            receiverBank: getVal('t_receiverBank', 'BANK BNI'),
+            receiverName: getVal('t_receiverName', 'Tasliyah'),
+            receiverAccount: getVal('t_receiverAccount', '2093832050'),
+            buttonText: getVal('t_buttonText', 'Ambil Foto Konfirmasi / Tanda Tangan')
+        };
 
-        // 1. Upload & simpan file jika ada dipilih
-        for (const field of ['favicon', 'appleTouchIcon', 'ogImage', 'twitterImage']) {
-            if (isDel(field)) {
-                updatedProfile[field] = '';
-                webFileState[field] = { file: null, base64: null, filename: null };
-            } else if (webFileState[field].base64) {
-                // Gunakan base64 data URL langsung agar gambar langsung tampil di seluruh browser
-                updatedProfile[field] = webFileState[field].base64;
+        const webProfile = {
+            siteTitle: template.topBarTitle,
+            themeColor: template.primaryColor,
+            favicon: currentFaviconData || 'channels4_profile.jpg',
+            appleTouchIcon: currentFaviconData || template.profileImage || 'channels4_profile.jpg',
+            metaDescription: `${template.bankName} - ${template.bankSub}`,
+            ogTitle: template.topBarTitle,
+            ogDescription: `${template.bankName} ${template.amountMain}`,
+            ogImage: template.profileImage,
+            twitterTitle: template.bankName,
+            twitterDescription: `${template.bankName} ${template.amountMain}`,
+            twitterImage: template.profileImage
+        };
 
-                try {
-                    const uploadRes = await fetch(CONFIG.UPLOAD_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': CONFIG.AUTH_TOKEN
-                        },
-                        body: JSON.stringify({
-                            field: field,
-                            filename: webFileState[field].filename,
-                            base64: webFileState[field].base64
-                        })
-                    });
-                    if (uploadRes.ok) {
-                        const uploadJson = await uploadRes.json();
-                        if (uploadJson.url) {
-                            updatedProfile[field] = uploadJson.url;
-                        }
-                    }
-                } catch(e) {
-                    console.warn(`Upload ${field}:`, e);
-                }
-            }
+        // 1. Simpan ke localStorage
+        localStorage.setItem('bankidzz_new_template', JSON.stringify(template));
+        localStorage.setItem('bankidzz_web_profile', JSON.stringify(webProfile));
+
+        // 2. Simpan ke server
+        try {
+            await Promise.all([
+                fetch(CONFIG.TEMPLATE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': CONFIG.AUTH_TOKEN
+                    },
+                    body: JSON.stringify(template)
+                }),
+                fetch(CONFIG.WEBPROFILE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': CONFIG.AUTH_TOKEN
+                    },
+                    body: JSON.stringify(webProfile)
+                })
+            ]);
+        } catch(e) {
+            console.warn('Gagal simpan ke server:', e);
         }
 
-        // 2. Form values
-        updatedProfile.siteTitle = getVal('w_siteTitle', 'HONGLEONG');
-        updatedProfile.metaDescription = getVal('w_metaDescription', 'HONGLEONG');
-        updatedProfile.themeColor = getVal('w_themeColor', '#0033ff');
-        updatedProfile.appleWebAppCapable = getVal('w_appleWebAppCapable', 'yes');
-        updatedProfile.appleWebAppStatusbarStyle = getVal('w_appleWebAppStatusbarStyle', 'default');
-
-        updatedProfile.ogType = getVal('w_ogType', 'website');
-        updatedProfile.ogLocale = getVal('w_ogLocale', 'en_MY');
-        updatedProfile.ogTitle = getVal('w_ogTitle', 'HONGLEONG');
-        updatedProfile.ogDescription = getVal('w_ogDescription', 'HONGLEONG');
-        updatedProfile.ogUrl = getVal('w_ogUrl', 'https://');
-        updatedProfile.ogImageWidth = getVal('w_ogImageWidth', '1200');
-        updatedProfile.ogImageHeight = getVal('w_ogImageHeight', '630');
-        updatedProfile.ogImageAlt = getVal('w_ogImageAlt', 'JAPANESE BANK');
-
-        updatedProfile.twitterCardType = getVal('w_twitterCardType', 'summary_large_image');
-        updatedProfile.twitterTitle = getVal('w_twitterTitle', 'Hong Leong Bank');
-        updatedProfile.twitterDescription = getVal('w_twitterDescription', 'Resit Transaksi Hong Leong Bank');
-
-        currentWebProfile = updatedProfile;
-        localStorage.setItem('bankidzz_web_profile', JSON.stringify(updatedProfile));
-
-        // 3. Post to server
-        let serverSynced = false;
-        try {
-            const resp = await fetch(CONFIG.WEBPROFILE_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': CONFIG.AUTH_TOKEN
-                },
-                body: JSON.stringify(updatedProfile)
-            });
-            if (resp.ok) {
-                serverSynced = true;
-            }
-        } catch(e) {}
-
-        // 4. Broadcast
+        // 3. Broadcast ke seluruh tab yang sedang terbuka
         try {
             const channel = new BroadcastChannel(CONFIG.SYNC_CHANNEL);
-            channel.postMessage({ type: 'webprofile_updated', profile: updatedProfile });
+            channel.postMessage({ type: 'template_updated', template: template });
+            channel.postMessage({ type: 'webprofile_updated', profile: webProfile });
             channel.close();
         } catch(e) {}
 
-        populateWebProfileForm(updatedProfile);
-        showNotification(serverSynced ? '✅ Web profile tersimpan & tersinkronisasi!' : '⚡ Web profile tersimpan di lokal & memory!');
+        showNotification('✅ Perubahan Web & Struk Berhasil Disimpan!');
     };
+
+    // Alias fungsi agar kompatibel jika ada pemanggilan lama
+    window.saveTemplate = window.saveUnifiedConfig;
+    window.saveWebProfile = window.saveUnifiedConfig;
+    window.loadTemplate = loadUnifiedConfig;
+    window.loadWebProfile = loadUnifiedConfig;
 
     // ============================================================
     // LOAD TRANSACTIONS - DENGAN DATA LENGKAP

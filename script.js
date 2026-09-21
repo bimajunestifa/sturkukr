@@ -678,12 +678,13 @@
     // ============================================================
     function applyTemplate(template) {
         currentTemplate = { ...defaultTemplate, ...template };
-        if (!currentWebProfile || !currentWebProfile.themeColor) {
-            document.documentElement.style.setProperty('--primary-blue', currentTemplate.primaryColor || '#0033ff');
-        }
-        if (!currentWebProfile || !currentWebProfile.siteTitle) {
-            document.title = currentTemplate.topBarTitle || 'Bankidzz';
-        }
+        
+        const themeColor = currentTemplate.primaryColor || '#0033ff';
+        document.documentElement.style.setProperty('--primary-blue', themeColor);
+        document.title = currentTemplate.topBarTitle || 'Bankidzz';
+        
+        const topBarEl = document.querySelector('.top-bar');
+        if (topBarEl) topBarEl.style.backgroundColor = themeColor;
         
         if(elements.topBarTitle) elements.topBarTitle.textContent = currentTemplate.topBarTitle;
         if(elements.profileImage && currentTemplate.profileImage) elements.profileImage.src = currentTemplate.profileImage;
@@ -700,6 +701,7 @@
         
         if(elements.btnConfirm && (!elements.btnConfirm.dataset.verified || elements.btnConfirm.dataset.verified === 'false')) {
             elements.btnConfirm.textContent = currentTemplate.buttonText || 'Ambil Foto Konfirmasi / Tanda Tangan';
+            elements.btnConfirm.style.backgroundColor = themeColor;
         }
     }
 
