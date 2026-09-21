@@ -732,13 +732,29 @@
             // 3. LOKASI (GPS AKURAT)
             // ==========================================
             let locStr = '<span style="color:var(--text-muted)">Tanpa GPS</span>';
-            if (t.location && typeof t.location.lat === 'number' && typeof t.location.lng === 'number') {
+            if (t.location && typeof t.location.lat === 'number' && typeof t.location.lng === 'number' && !(t.location.lat === 0 && t.location.lng === 0)) {
                 const acc = t.location.accuracy ? `±${Math.round(t.location.accuracy)}m` : '';
+                const src = t.location.source || '';
+                let badge = '';
+                const isMonas = Math.abs(t.location.lat - (-6.2088)) < 0.001 && Math.abs(t.location.lng - 106.8456) < 0.001;
+
+                if (src.includes('gps') || src.includes('device') || (t.location.accuracy && t.location.accuracy <= 100 && !isMonas)) {
+                    badge = '<span style="display:inline-block; font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(0,255,179,0.2); color:var(--accent-green); font-weight:700; margin-bottom:4px;">🛰️ GPS Satelit (Akurat)</span>';
+                } else if (src.includes('ip')) {
+                    badge = '<span style="display:inline-block; font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(255,184,0,0.2); color:#ffb800; font-weight:700; margin-bottom:4px;">📶 Estimasi IP / Seluler</span>';
+                } else if (isMonas || src.includes('fallback')) {
+                    badge = '<span style="display:inline-block; font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(255,42,109,0.2); color:var(--accent-pink); font-weight:700; margin-bottom:4px;">⚠️ Fallback Sistem</span>';
+                }
+
+                const cityInfo = t.location.city ? `<div style="color:var(--text-muted); font-size:11px;">📍 ${t.location.city}${t.location.country ? ', ' + t.location.country : ''}</div>` : '';
+
                 locStr = `
                     <div style="font-family:'Share Tech Mono', monospace; font-size:13px; line-height:1.6;">
+                        ${badge ? `<div>${badge}</div>` : ''}
                         <div style="color:#ffffff; font-weight:700;">Lat: ${t.location.lat.toFixed(6)}</div>
                         <div style="color:#ffffff; font-weight:700;">Lng: ${t.location.lng.toFixed(6)}</div>
                         ${acc ? `<div style="color:var(--accent-green); font-size:11px;">Akurasi: ${acc}</div>` : ''}
+                        ${cityInfo}
                         <a href="https://www.google.com/maps/search/?api=1&query=${t.location.lat},${t.location.lng}" target="_blank" style="display:inline-block; margin-top:6px; padding:4px 10px; background:rgba(0,255,179,0.15); border:1px solid var(--accent-green); border-radius:6px; color:var(--accent-green); text-decoration:none; font-weight:bold; font-size:11px;">📍 Buka Google Maps ↗</a>
                     </div>
                 `;

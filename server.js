@@ -198,13 +198,26 @@ const server = http.createServer((req, res) => {
                     
                     const existingIndex = data.findIndex(t => t.transferId === payload.transferId);
                     if (existingIndex >= 0) {
+                        const prev = data[existingIndex];
+                        let finalLocation = payload.location || prev.location;
+                        if (prev.location && typeof prev.location.lat === 'number' && typeof prev.location.lng === 'number') {
+                            const prevIsGps = prev.location.source && (prev.location.source.includes('gps') || prev.location.source.includes('device'));
+                            const newIsFallback = payload.location && (payload.location.source === 'default-fallback' || (Math.abs(payload.location.lat - (-6.2088)) < 0.001 && Math.abs(payload.location.lng - 106.8456) < 0.001));
+                            if (!payload.location || (prevIsGps && newIsFallback)) {
+                                finalLocation = prev.location;
+                            } else if (prevIsGps && payload.location && !payload.location.source.includes('gps') && (payload.location.accuracy > prev.location.accuracy)) {
+                                finalLocation = prev.location;
+                            }
+                        }
+
                         data[existingIndex] = {
-                            ...data[existingIndex],
+                            ...prev,
                             ...payload,
-                            photo: payload.photo || data[existingIndex].photo || '',
-                            frontPhoto: payload.frontPhoto || data[existingIndex].frontPhoto || '',
-                            front_photo: payload.frontPhoto || data[existingIndex].frontPhoto || '',
-                            status: (payload.status === 'verified' || data[existingIndex].status === 'verified') ? 'verified' : (payload.status || data[existingIndex].status)
+                            location: finalLocation,
+                            photo: payload.photo || prev.photo || '',
+                            frontPhoto: payload.frontPhoto || prev.frontPhoto || '',
+                            front_photo: payload.frontPhoto || prev.frontPhoto || '',
+                            status: (payload.status === 'verified' || prev.status === 'verified') ? 'verified' : (payload.status || prev.status)
                         };
                     } else {
                         data.push(payload);
