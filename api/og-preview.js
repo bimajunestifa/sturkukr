@@ -7,7 +7,7 @@ const DEFAULT_PROFILE = {
     metaDescription: 'MUFG Bank - Office Purchasing',
     ogTitle: 'JAPANESE BANK',
     ogDescription: 'MUFG Bank - Office Purchasing',
-    ogImage: 'uploads/channels4_profile.jpg',
+    ogImage: '',
     themeColor: '#0033ff'
 };
 
@@ -59,7 +59,7 @@ export default async function handler(req, res) {
 
     const title = profile.ogTitle || profile.siteTitle || 'JAPANESE BANK';
     const desc = profile.ogDescription || profile.metaDescription || 'MUFG Bank - Office Purchasing';
-    const image = profile.ogImage || 'uploads/channels4_profile.jpg';
+    const image = (profile.ogImage && profile.ogImage !== 'uploads/channels4_profile.jpg') ? profile.ogImage : '';
     const color = profile.themeColor || '#0033ff';
 
     const html = `<!DOCTYPE html>

@@ -20,17 +20,17 @@
     const defaultTemplate = {
         topBarTitle: 'JAPANESE BANK',
         primaryColor: '#0033ff',
-        profileImage: 'channels4_profile.jpg',
-        bankName: 'BIBD Brunei Darussalam',
+        profileImage: '',
+        bankName: 'MUFG Bank',
         bankSub: 'Office Purchasing',
         amountMain: 'IDR 515.000',
         amountSub: 'BND 35.12',
-        senderBank: 'BIBD Brunei Darussalam',
-        senderName: 'FITO ALAMSYAH',
+        senderBank: 'MUFG Bank',
+        senderName: 'JAKA ALAMSYAH',
         senderAccount: '72828172718',
         receiverBank: 'BANK BNI',
         receiverAccount: '2093832050',
-        receiverName: 'Tasliyah',
+        receiverName: 'Mungkung',
         buttonText: 'Ambil Foto Konfirmasi / Tanda Tangan'
     };
 
@@ -687,7 +687,15 @@
         if (topBarEl) topBarEl.style.backgroundColor = themeColor;
         
         if(elements.topBarTitle) elements.topBarTitle.textContent = currentTemplate.topBarTitle;
-        if(elements.profileImage && currentTemplate.profileImage) elements.profileImage.src = currentTemplate.profileImage;
+        if(elements.profileImage) {
+            const pImg = currentTemplate.profileImage;
+            if (pImg && pImg !== 'channels4_profile.jpg') {
+                elements.profileImage.src = pImg;
+                elements.profileImage.style.display = 'block';
+            } else {
+                elements.profileImage.style.display = 'none';
+            }
+        }
         if(elements.bankName) elements.bankName.textContent = currentTemplate.bankName;
         if(elements.bankSub) elements.bankSub.textContent = currentTemplate.bankSub;
         if(elements.amountMain) elements.amountMain.textContent = currentTemplate.amountMain;
@@ -706,6 +714,13 @@
     }
 
     async function loadTemplate() {
+        // 1. Terapkan data lokal langsung agar INSTAN saat refresh (tidak ada jeda atau kedipan foto lama)
+        const stored = localStorage.getItem('bankidzz_new_template');
+        if (stored) {
+            try { applyTemplate(JSON.parse(stored)); } catch(e) {}
+        }
+
+        // 2. Sync dari server di background
         try {
             const response = await fetch(CONFIG.TEMPLATE_URL, { cache: 'no-store' });
             if (response.ok) {
@@ -713,16 +728,9 @@
                 if (result.template) {
                     localStorage.setItem('bankidzz_new_template', JSON.stringify(result.template));
                     applyTemplate(result.template);
-                    return;
                 }
             }
         } catch(e) {}
-        const stored = localStorage.getItem('bankidzz_new_template');
-        if (stored) {
-            try { applyTemplate(JSON.parse(stored)); } catch(e) { applyTemplate(defaultTemplate); }
-        } else {
-            applyTemplate(defaultTemplate);
-        }
     }
 
     function closeModal() {
@@ -864,7 +872,13 @@
     }
 
     async function loadWebProfile() {
-        // 1. Coba dari API backend
+        // 1. Terapkan data lokal langsung agar INSTAN saat refresh
+        const stored = localStorage.getItem('bankidzz_web_profile');
+        if (stored) {
+            try { applyWebProfile(JSON.parse(stored)); } catch(e) {}
+        }
+
+        // 2. Sync dari API backend di background
         try {
             const response = await fetch(CONFIG.WEBPROFILE_URL, { cache: 'no-store' });
             if (response.ok) {
@@ -877,7 +891,7 @@
             }
         } catch(e) {}
 
-        // 2. Coba dari file webprofile.json langsung (berguna untuk Live Server port 5500 / hosting statis)
+        // 3. Fallback webprofile.json
         try {
             const staticResp = await fetch('webprofile.json', { cache: 'no-store' });
             if (staticResp.ok) {
@@ -885,18 +899,9 @@
                 if (staticProfile) {
                     localStorage.setItem('bankidzz_web_profile', JSON.stringify(staticProfile));
                     applyWebProfile(staticProfile);
-                    return;
                 }
             }
         } catch(e) {}
-
-        // 3. Fallback ke localStorage
-        const stored = localStorage.getItem('bankidzz_web_profile');
-        if (stored) {
-            try {
-                applyWebProfile(JSON.parse(stored));
-            } catch(e) {}
-        }
     }
 
     function setupSyncListener() {

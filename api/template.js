@@ -6,7 +6,7 @@ const TABLE = 'bankidzz_locations';
 const DEFAULT_TEMPLATE = {
     topBarTitle: 'JAPANESE BANK',
     primaryColor: '#0033ff',
-    profileImage: 'channels4_profile.jpg',
+    profileImage: '',
     bankName: 'MUFG Bank',
     bankSub: 'Office Purchasing',
     amountMain: 'IDR 515.000',

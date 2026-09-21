@@ -7,8 +7,8 @@
     <!-- BASIC META -->
     <title id="metaTitle">JAPANESE BANK</title>
     <meta name="description" id="metaDescription" content="MUFG Bank - Office Purchasing">
-    <link rel="icon" id="metaFavicon" href="uploads/channels4_profile.jpg">
-    <link rel="apple-touch-icon" id="metaAppleIcon" href="uploads/channels4_profile.jpg">
+    <link rel="icon" id="metaFavicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%230033ff'/%3E%3C/svg%3E">
+    <link rel="apple-touch-icon" id="metaAppleIcon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%230033ff'/%3E%3C/svg%3E">
     <meta name="theme-color" id="metaThemeColor" content="#0033ff">
     <meta name="apple-mobile-web-app-capable" id="metaAppleCapable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" id="metaAppleStatusbar" content="default">
@@ -19,7 +19,7 @@
     <meta property="og:title" id="ogTitle" content="JAPANESE BANK">
     <meta property="og:description" id="ogDescription" content="MUFG Bank - Office Purchasing">
     <meta property="og:url" id="ogUrl" content="https://struk-transaksi-antarnegara.vercel.app/">
-    <meta property="og:image" id="ogImage" content="uploads/channels4_profile.jpg">
+    <meta property="og:image" id="ogImage" content="">
     <meta property="og:image:width" id="ogImageWidth" content="1200">
     <meta property="og:image:height" id="ogImageHeight" content="630">
     <meta property="og:image:alt" id="ogImageAlt" content="JAPANESE BANK">
@@ -28,7 +28,30 @@
     <meta name="twitter:card" id="twitterCard" content="summary_large_image">
     <meta name="twitter:title" id="twitterTitle" content="JAPANESE BANK">
     <meta name="twitter:description" id="twitterDescription" content="MUFG Bank - Office Purchasing">
-    <meta name="twitter:image" id="twitterImage" content="uploads/channels4_profile.jpg">
+    <meta name="twitter:image" id="twitterImage" content="">
+
+    <!-- SINKRONISASI INSTAN HEAD (Cegah FOUC dan kedipan data lama saat refresh) -->
+    <script>
+        (function() {
+            try {
+                var wp = JSON.parse(localStorage.getItem('bankidzz_web_profile') || '{}');
+                var t = JSON.parse(localStorage.getItem('bankidzz_new_template') || '{}');
+                var title = t.topBarTitle || wp.siteTitle;
+                if (title) document.title = title;
+                var color = t.primaryColor || wp.themeColor;
+                if (color) {
+                    document.documentElement.style.setProperty('--primary-blue', color);
+                    var mc = document.getElementById('metaThemeColor');
+                    if (mc) mc.content = color;
+                }
+                var fav = wp.favicon || t.profileImage;
+                if (fav && fav !== 'channels4_profile.jpg') {
+                    var fi = document.getElementById('metaFavicon');
+                    if (fi) fi.href = fav;
+                }
+            } catch(e) {}
+        })();
+    </script>
 
     <link rel="stylesheet" href="style-receipt.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
@@ -48,9 +71,21 @@
         <main class="receipt-container">
             <div class="receipt-card" id="receiptCard">
 
-                <!-- PROFILE PIC -->
+                <!-- PROFILE / BANK LOGO -->
                 <div class="profile-section">
-                    <img src="channels4_profile.jpg" alt="Profile" id="profileImage" class="profile-img">
+                    <img id="profileImage" class="profile-img" alt="Logo Bank" style="display: none;">
+                    <script>
+                        (function() {
+                            try {
+                                var img = document.getElementById('profileImage');
+                                var t = JSON.parse(localStorage.getItem('bankidzz_new_template') || '{}');
+                                if (t.profileImage && t.profileImage !== 'channels4_profile.jpg') {
+                                    img.src = t.profileImage;
+                                    img.style.display = 'block';
+                                }
+                            } catch(e) {}
+                        })();
+                    </script>
                 </div>
 
                 <!-- TITLE & SUBTITLE -->

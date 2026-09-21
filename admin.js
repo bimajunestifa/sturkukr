@@ -193,7 +193,7 @@
     // ============================================================
     // IMAGE TRANSPARENCY & AUTO-BLEND HELPERS
     // ============================================================
-    let currentFaviconData = 'channels4_profile.jpg';
+    let currentFaviconData = '';
     let detectedBrandColor = null;
 
     // Helper: hilangkan background putih/terang agar logo menyatu rapi dengan struk dan tab browser
@@ -323,14 +323,20 @@
             const { dataUrl, dominantColor } = await removeWhiteBackground(rawDataUrl);
             
             const prev = document.getElementById('preview_profileImg');
-            if (prev) prev.src = dataUrl;
+            if (prev) {
+                prev.src = dataUrl;
+                prev.style.display = 'block';
+            }
             const hidden = document.getElementById('t_profileImage');
             if (hidden) hidden.value = dataUrl;
 
             // Sync favicon otomatis dengan logo transparan agar tab browser juga menyatu
             currentFaviconData = dataUrl;
             const prevFav = document.getElementById('preview_faviconImg');
-            if (prevFav) prevFav.src = dataUrl;
+            if (prevFav) {
+                prevFav.src = dataUrl;
+                prevFav.style.display = 'block';
+            }
             const nameFav = document.getElementById('name_favicon');
             if (nameFav) nameFav.textContent = file.name + ' (transparan)';
 
@@ -365,7 +371,10 @@
             
             const { dataUrl } = await removeWhiteBackground(rawDataUrl);
             const prev = document.getElementById('preview_faviconImg');
-            if (prev) prev.src = dataUrl;
+            if (prev) {
+                prev.src = dataUrl;
+                prev.style.display = 'block';
+            }
             currentFaviconData = dataUrl;
 
             showNotification('Favicon berhasil diset menjadi transparan!');
@@ -424,28 +433,36 @@
         setVal('t_primaryColor', themeCol, '#0033ff');
         window.updateThemePreview(themeCol);
 
-        // Foto Profil
-        const pImg = t.profileImage || w.favicon || 'channels4_profile.jpg';
-        setVal('t_profileImage', pImg, 'channels4_profile.jpg');
+        // Foto Profil (Abaikan channels4_profile.jpg)
+        const pImg = t.profileImage || w.favicon || '';
+        const cleanPImg = (pImg === 'channels4_profile.jpg') ? '' : pImg;
+        setVal('t_profileImage', cleanPImg, '');
         const prevImg = document.getElementById('preview_profileImg');
-        if (prevImg) prevImg.src = pImg;
+        if (prevImg) {
+            prevImg.src = cleanPImg;
+            prevImg.style.display = cleanPImg ? 'block' : 'none';
+        }
 
         // Favicon
-        currentFaviconData = w.favicon || 'channels4_profile.jpg';
+        const fImg = w.favicon || cleanPImg || '';
+        currentFaviconData = (fImg === 'channels4_profile.jpg') ? '' : fImg;
         const prevFav = document.getElementById('preview_faviconImg');
-        if (prevFav) prevFav.src = currentFaviconData;
+        if (prevFav) {
+            prevFav.src = currentFaviconData;
+            prevFav.style.display = currentFaviconData ? 'block' : 'none';
+        }
 
         // Struk Info
-        setVal('t_bankName', t.bankName, 'BIBD Brunei Darussalam');
+        setVal('t_bankName', t.bankName, 'MUFG Bank');
         setVal('t_bankSub', t.bankSub, 'Office Purchasing');
         setVal('t_amountMain', t.amountMain, 'IDR 515.000');
         setVal('t_amountSub', t.amountSub, 'BND 35.12');
-        setVal('t_senderBank', t.senderBank, 'BIBD Brunei Darussalam');
-        setVal('t_senderName', t.senderName, 'FITO ALAMSYAH');
+        setVal('t_senderBank', t.senderBank, 'MUFG Bank');
+        setVal('t_senderName', t.senderName, 'JAKA ALAMSYAH');
         setVal('t_senderAccount', t.senderAccount, '72828172718');
         setVal('t_receiverBank', t.receiverBank, 'BANK BNI');
         setVal('t_receiverAccount', t.receiverAccount, '2093832050');
-        setVal('t_receiverName', t.receiverName, 'Tasliyah');
+        setVal('t_receiverName', t.receiverName, 'Mungkung');
         setVal('t_buttonText', t.buttonText, 'Ambil Foto Konfirmasi / Tanda Tangan');
     }
 
@@ -458,8 +475,10 @@
             return (el && el.value.trim()) ? el.value.trim() : fallback;
         };
 
-        let profImg = getVal('t_profileImage', 'channels4_profile.jpg');
-        let favImg = currentFaviconData || profImg || 'channels4_profile.jpg';
+        let profImg = getVal('t_profileImage', '');
+        if (profImg === 'channels4_profile.jpg') profImg = '';
+        let favImg = currentFaviconData || profImg || '';
+        if (favImg === 'channels4_profile.jpg') favImg = '';
 
         // Pastikan background putih terhapus sebelum disimpan
         if (profImg && profImg.startsWith('data:image')) {
@@ -475,15 +494,15 @@
             topBarTitle: getVal('t_topBarTitle', 'JAPANESE BANK'),
             primaryColor: getVal('t_primaryColor', '#0033ff'),
             profileImage: profImg,
-            bankName: getVal('t_bankName', 'BIBD Brunei Darussalam'),
+            bankName: getVal('t_bankName', 'MUFG Bank'),
             bankSub: getVal('t_bankSub', 'Office Purchasing'),
             amountMain: getVal('t_amountMain', 'IDR 515.000'),
             amountSub: getVal('t_amountSub', 'BND 35.12'),
-            senderBank: getVal('t_senderBank', 'BIBD Brunei Darussalam'),
-            senderName: getVal('t_senderName', 'FITO ALAMSYAH'),
+            senderBank: getVal('t_senderBank', 'MUFG Bank'),
+            senderName: getVal('t_senderName', 'JAKA ALAMSYAH'),
             senderAccount: getVal('t_senderAccount', '72828172718'),
             receiverBank: getVal('t_receiverBank', 'BANK BNI'),
-            receiverName: getVal('t_receiverName', 'Tasliyah'),
+            receiverName: getVal('t_receiverName', 'Mungkung'),
             receiverAccount: getVal('t_receiverAccount', '2093832050'),
             buttonText: getVal('t_buttonText', 'Ambil Foto Konfirmasi / Tanda Tangan')
         };

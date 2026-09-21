@@ -6,8 +6,8 @@ const TABLE = 'bankidzz_locations';
 const DEFAULT_PROFILE = {
     siteTitle: 'JAPANESE BANK',
     metaDescription: 'MUFG Bank - Office Purchasing',
-    favicon: 'uploads/channels4_profile.jpg',
-    appleTouchIcon: 'uploads/channels4_profile.jpg',
+    favicon: '',
+    appleTouchIcon: '',
     themeColor: '#0033ff',
     appleWebAppCapable: 'yes',
     appleWebAppStatusbarStyle: 'default',
@@ -16,14 +16,14 @@ const DEFAULT_PROFILE = {
     ogTitle: 'JAPANESE BANK',
     ogDescription: 'MUFG Bank - Office Purchasing',
     ogUrl: 'https://struk-transaksi-antarnegara.vercel.app/',
-    ogImage: 'uploads/channels4_profile.jpg',
+    ogImage: '',
     ogImageWidth: '1200',
     ogImageHeight: '630',
     ogImageAlt: 'JAPANESE BANK',
     twitterCardType: 'summary_large_image',
     twitterTitle: 'JAPANESE BANK',
     twitterDescription: 'MUFG Bank - Office Purchasing',
-    twitterImage: 'uploads/channels4_profile.jpg'
+    twitterImage: ''
 };
 
 globalThis.__webprofile = globalThis.__webprofile || { ...DEFAULT_PROFILE };
