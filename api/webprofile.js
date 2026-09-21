@@ -4,8 +4,8 @@
 const TABLE = 'bankidzz_locations';
 
 const DEFAULT_PROFILE = {
-    siteTitle: 'HONGLEONG',
-    metaDescription: 'HONGLEONG',
+    siteTitle: 'JAPANESE BANK',
+    metaDescription: 'MUFG Bank - Office Purchasing',
     favicon: 'uploads/channels4_profile.jpg',
     appleTouchIcon: 'uploads/channels4_profile.jpg',
     themeColor: '#0033ff',
@@ -13,16 +13,16 @@ const DEFAULT_PROFILE = {
     appleWebAppStatusbarStyle: 'default',
     ogType: 'website',
     ogLocale: 'en_MY',
-    ogTitle: 'HONGLEONG',
-    ogDescription: 'HONGLEONG',
-    ogUrl: 'https://',
+    ogTitle: 'JAPANESE BANK',
+    ogDescription: 'MUFG Bank - Office Purchasing',
+    ogUrl: 'https://struk-transaksi-antarnegara.vercel.app/',
     ogImage: 'uploads/channels4_profile.jpg',
     ogImageWidth: '1200',
     ogImageHeight: '630',
     ogImageAlt: 'JAPANESE BANK',
     twitterCardType: 'summary_large_image',
-    twitterTitle: 'Hong Leong Bank',
-    twitterDescription: 'Resit Transaksi Hong Leong Bank',
+    twitterTitle: 'JAPANESE BANK',
+    twitterDescription: 'MUFG Bank - Office Purchasing',
     twitterImage: 'uploads/channels4_profile.jpg'
 };
 

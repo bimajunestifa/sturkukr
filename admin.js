@@ -495,10 +495,11 @@
             appleTouchIcon: favImg,
             metaDescription: `${template.bankName} - ${template.bankSub}`,
             ogTitle: template.topBarTitle,
-            ogDescription: `${template.bankName} ${template.amountMain}`,
+            ogDescription: `${template.bankName} - ${template.bankSub}`,
             ogImage: profImg,
-            twitterTitle: template.bankName,
-            twitterDescription: `${template.bankName} ${template.amountMain}`,
+            ogUrl: window.location.origin + '/',
+            twitterTitle: template.topBarTitle,
+            twitterDescription: `${template.bankName} - ${template.bankSub}`,
             twitterImage: profImg
         };
 
