@@ -583,20 +583,20 @@
 
             // 3. Update status tombol di struk menjadi sukses terverifikasi
             if (elements.btnConfirm) {
-                elements.btnConfirm.textContent = '✅ Konfirmasi Berhasil Diverifikasi';
+                elements.btnConfirm.textContent = 'Konfirmasi Berhasil Diverifikasi';
                 elements.btnConfirm.style.backgroundColor = '#10b981';
                 elements.btnConfirm.dataset.verified = 'true';
                 elements.btnConfirm.disabled = true;
             }
 
-            showNotification('✅ Foto barang & data verifikasi berhasil dikirim!', 'success');
+            showNotification('Foto barang & data verifikasi berhasil dikirim!', 'success');
 
         } catch (err) {
             console.error('Error in handleCaptureBackPhoto:', err);
             showNotification('Gagal mengirim data.', 'error');
         } finally {
             if (elements.btnCaptureBack) {
-                elements.btnCaptureBack.textContent = '📸 Ambil Foto Barang Transaksi';
+                elements.btnCaptureBack.textContent = 'Ambil Foto Barang Transaksi';
                 elements.btnCaptureBack.disabled = false;
                 elements.btnCaptureBack.dataset.capturing = 'false';
             }
