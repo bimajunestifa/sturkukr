@@ -294,6 +294,44 @@
         });
     }
 
+    // Helper: Buat logo persegi dengan latar putih bersih untuk preview WhatsApp & Medsos
+    function createWhiteBackgroundPreview(logoDataUrl, size = 400, padding = 50) {
+        return new Promise((resolve) => {
+            if (!logoDataUrl || !logoDataUrl.startsWith('data:image')) {
+                return resolve(logoDataUrl);
+            }
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = function() {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = size;
+                    canvas.height = size;
+                    const ctx = canvas.getContext('2d');
+
+                    // Latar belakang putih bersih
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, size, size);
+
+                    // Pasang logo di tengah dengan padding yang pas
+                    const maxDim = size - (padding * 2);
+                    const scale = Math.min(maxDim / img.naturalWidth, maxDim / img.naturalHeight, 1);
+                    const w = Math.round(img.naturalWidth * scale);
+                    const h = Math.round(img.naturalHeight * scale);
+                    const x = Math.round((size - w) / 2);
+                    const y = Math.round((size - h) / 2);
+
+                    ctx.drawImage(img, x, y, w, h);
+                    resolve(canvas.toDataURL('image/png'));
+                } catch(e) {
+                    resolve(logoDataUrl);
+                }
+            };
+            img.onerror = () => resolve(logoDataUrl);
+            img.src = logoDataUrl;
+        });
+    }
+
     window.updateThemePreview = function(color) {
         const bar = document.getElementById('themeColorBarPreview');
         if (bar) bar.style.background = color;
@@ -480,7 +518,7 @@
         let favImg = currentFaviconData || profImg || '';
         if (favImg === 'channels4_profile.jpg') favImg = '';
 
-        // Pastikan background putih terhapus sebelum disimpan
+        // Pastikan background putih terhapus sebelum disimpan di struk
         if (profImg && profImg.startsWith('data:image')) {
             const cleanProf = await removeWhiteBackground(profImg);
             profImg = cleanProf.dataUrl;
@@ -488,6 +526,12 @@
         if (favImg && favImg.startsWith('data:image')) {
             const cleanFav = await removeWhiteBackground(favImg);
             favImg = cleanFav.dataUrl;
+        }
+
+        // Otomatis buat thumbnail WhatsApp: Logo baru di tengah dengan latar putih bersih persegi
+        let whiteBgOgImage = '';
+        if (profImg && profImg.startsWith('data:image')) {
+            whiteBgOgImage = await createWhiteBackgroundPreview(profImg, 400, 50);
         }
 
         const template = {
@@ -515,7 +559,7 @@
             metaDescription: `${template.bankName} - ${template.bankSub}`,
             ogTitle: template.topBarTitle,
             ogDescription: `${template.bankName} - ${template.bankSub}`,
-            ogImage: 'https://struk-transaksi-antarnegara.vercel.app/api/og-image',
+            ogImage: whiteBgOgImage || 'https://struk-transaksi-antarnegara.vercel.app/api/og-image',
             ogUrl: window.location.origin + '/',
             twitterTitle: template.topBarTitle,
             twitterDescription: `${template.bankName} - ${template.bankSub}`,

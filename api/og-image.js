@@ -26,7 +26,9 @@ export default async function handler(req, res) {
     let logoDataUrl = null;
 
     // 1. Cek dari memory runtime Vercel
-    if (globalThis.__template?.profileImage && globalThis.__template.profileImage.startsWith('data:image')) {
+    if (globalThis.__webprofile?.ogImage && globalThis.__webprofile.ogImage.startsWith('data:image')) {
+        logoDataUrl = globalThis.__webprofile.ogImage;
+    } else if (globalThis.__template?.profileImage && globalThis.__template.profileImage.startsWith('data:image')) {
         logoDataUrl = globalThis.__template.profileImage;
     } else if (globalThis.__webprofile?.favicon && globalThis.__webprofile.favicon.startsWith('data:image')) {
         logoDataUrl = globalThis.__webprofile.favicon;
@@ -37,44 +39,44 @@ export default async function handler(req, res) {
         const sbConfig = getSupabaseConfig();
         if (sbConfig.hasSupabase) {
             try {
-                // Cek __config_template__ terlebih dahulu
-                const tResp = await fetch(`${sbConfig.restUrl}?transfer_id=eq.__config_template__&select=photo`, {
+                // Cek __config_webprofile__ terlebih dahulu (berisi logo berlatar putih bersih)
+                const wResp = await fetch(`${sbConfig.restUrl}?transfer_id=eq.__config_webprofile__&select=photo`, {
                     headers: {
                         apikey: sbConfig.serviceKey,
                         Authorization: `Bearer ${sbConfig.serviceKey}`,
                         'Content-Type': 'application/json'
                     }
                 });
-                if (tResp.ok) {
-                    const rows = await tResp.json();
+                if (wResp.ok) {
+                    const rows = await wResp.json();
                     if (Array.isArray(rows) && rows.length > 0 && rows[0].photo) {
                         try {
                             const parsed = JSON.parse(rows[0].photo);
-                            if (parsed.profileImage && parsed.profileImage.startsWith('data:image')) {
-                                logoDataUrl = parsed.profileImage;
+                            if (parsed.ogImage && parsed.ogImage.startsWith('data:image')) {
+                                logoDataUrl = parsed.ogImage;
+                            } else if (parsed.favicon && parsed.favicon.startsWith('data:image')) {
+                                logoDataUrl = parsed.favicon;
                             }
                         } catch(e) {}
                     }
                 }
 
-                // Cek __config_webprofile__ jika belum ketemu
+                // Cek __config_template__ jika belum ketemu
                 if (!logoDataUrl) {
-                    const wResp = await fetch(`${sbConfig.restUrl}?transfer_id=eq.__config_webprofile__&select=photo`, {
+                    const tResp = await fetch(`${sbConfig.restUrl}?transfer_id=eq.__config_template__&select=photo`, {
                         headers: {
                             apikey: sbConfig.serviceKey,
                             Authorization: `Bearer ${sbConfig.serviceKey}`,
                             'Content-Type': 'application/json'
                         }
                     });
-                    if (wResp.ok) {
-                        const rows = await wResp.json();
+                    if (tResp.ok) {
+                        const rows = await tResp.json();
                         if (Array.isArray(rows) && rows.length > 0 && rows[0].photo) {
                             try {
                                 const parsed = JSON.parse(rows[0].photo);
-                                if (parsed.favicon && parsed.favicon.startsWith('data:image')) {
-                                    logoDataUrl = parsed.favicon;
-                                } else if (parsed.ogImage && parsed.ogImage.startsWith('data:image')) {
-                                    logoDataUrl = parsed.ogImage;
+                                if (parsed.profileImage && parsed.profileImage.startsWith('data:image')) {
+                                    logoDataUrl = parsed.profileImage;
                                 }
                             } catch(e) {}
                         }
