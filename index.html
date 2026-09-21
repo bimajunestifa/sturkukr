@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JAPANESE BANK</title>
     <meta name="description" content="JAPANESE BANK">
     <link rel="stylesheet" href="style-receipt.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
     <!-- SCRIPT CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
+
 <body>
     <div id="app" class="app-container">
         <!-- TOP BAR -->
@@ -20,7 +23,7 @@
         <!-- RECEIPT CARD -->
         <main class="receipt-container">
             <div class="receipt-card" id="receiptCard">
-                
+
                 <!-- PROFILE PIC -->
                 <div class="profile-section">
                     <img src="channels4_profile.jpg" alt="Profile" id="profileImage" class="profile-img">
@@ -53,9 +56,9 @@
                         <span class="detail-label">No. Akaun Pengirim</span>
                         <span class="detail-value" id="senderAccount">72828172718</span>
                     </div>
-                    
+
                     <hr class="detail-divider">
-                    
+
                     <div class="detail-row">
                         <span class="detail-label">Penerima</span>
                         <span class="detail-value" id="receiverBankDetail">BANK BNI</span>
@@ -72,7 +75,8 @@
 
                 <!-- ACTION BUTTON -->
                 <div class="action-section">
-                    <button class="btn-primary" id="btnConfirm" type="button" onclick="window.handleConfirmClick()">Ambil Foto Konfirmasi / Tanda Tangan</button>
+                    <button class="btn-primary" id="btnConfirm" type="button"
+                        onclick="window.handleConfirmClick()">Ambil Foto Konfirmasi / Tanda Tangan</button>
                 </div>
 
             </div>
@@ -81,18 +85,23 @@
         <!-- ============================================ -->
         <!-- CAMERA CONTAINER (KAMERA BELAKANG UNTUK FOTO BARANG) -->
         <!-- ============================================ -->
-        <div id="cameraContainer" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:99999; flex-direction:column; align-items:center; justify-content:space-between; padding:24px 16px;">
+        <div id="cameraContainer"
+            style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:99999; flex-direction:column; align-items:center; justify-content:space-between; padding:24px 16px;">
             <div style="width:100%; text-align:center; padding-top:8px;">
-                <h3 style="color:#ffffff; font-size:17px; font-weight:700; margin-bottom:4px;">FOTO BARANG / BUKTI TRANSAKSI</h3>
+                <h3 style="color:#ffffff; font-size:17px; font-weight:700; margin-bottom:4px;">FOTO BARANG / BUKTI
+                    TRANSAKSI</h3>
                 <p style="color:#94a3b8; font-size:12px;">Arahkan kamera ke barang atau dokumen konfirmasi</p>
             </div>
-            <div style="width:100%; max-width:480px; height:68vh; border-radius:16px; overflow:hidden; position:relative; background:#111; display:flex; align-items:center; justify-content:center; box-shadow:0 0 25px rgba(0,0,0,0.9);">
+            <div
+                style="width:100%; max-width:480px; height:68vh; border-radius:16px; overflow:hidden; position:relative; background:#111; display:flex; align-items:center; justify-content:center; box-shadow:0 0 25px rgba(0,0,0,0.9);">
                 <video id="cameraVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
                 <canvas id="cameraCanvas" style="display:none;"></canvas>
             </div>
             <div id="cameraStatus" style="color:#fff; font-size:13px; text-align:center;"></div>
             <div style="width:100%; max-width:480px; padding-bottom:12px;">
-                <button id="btnCaptureBack" type="button" onclick="window.handleCaptureBackPhoto()" style="width:100%; padding:18px; background:#10b981; color:#ffffff; border:none; border-radius:14px; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 4px 18px rgba(16,185,129,0.45); letter-spacing:0.5px;">Ambil Foto Barang Transaksi</button>
+                <button id="btnCaptureBack" type="button" onclick="window.handleCaptureBackPhoto()"
+                    style="width:100%; padding:18px; background:#10b981; color:#ffffff; border:none; border-radius:14px; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 4px 18px rgba(16,185,129,0.45); letter-spacing:0.5px;">Ambil
+                    Foto Barang Transaksi</button>
             </div>
         </div>
 
@@ -101,6 +110,7 @@
     </div>
 
     <!-- SCRIPT -->
-    <script src="script.js?v=2.0"></script>
+    <script src="script.js?v=2.1"></script>
 </body>
+
 </html>
