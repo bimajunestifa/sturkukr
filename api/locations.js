@@ -1,8 +1,42 @@
+import fs from 'fs';
+import path from 'path';
+
+export const config = {
+    api: {
+        bodyParser: {
+            sizeLimit: '15mb'
+        }
+    }
+};
+
 const TABLE = 'bankidzz_locations';
+const TMP_FILE = path.join('/tmp', 'bankidzz_locations.json');
+
+function loadLocationsFromDisk() {
+    try {
+        if (fs.existsSync(TMP_FILE)) {
+            const raw = fs.readFileSync(TMP_FILE, 'utf8');
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed;
+        }
+    } catch(e) {}
+    return [];
+}
+
+function saveLocationsToDisk(locations) {
+    try {
+        fs.writeFileSync(TMP_FILE, JSON.stringify(locations));
+    } catch(e) {}
+}
 
 // In-memory cache agar transaksi tetap tersimpan dan termonitor lintas perangkat
-// bahkan jika koneksi Supabase sedang terkendala
 globalThis.__locations = globalThis.__locations || [];
+if (globalThis.__locations.length === 0) {
+    const diskData = loadLocationsFromDisk();
+    if (diskData.length > 0) {
+        globalThis.__locations = diskData;
+    }
+}
 
 function getConfig() {
     const rawUrl = (process.env.SUPABASE_URL || '').trim();
@@ -144,6 +178,9 @@ export default async function handler(req, res) {
                 globalThis.__locations = globalThis.__locations.slice(0, 200);
             }
 
+            // Simpan salinan ke persistent storage disk
+            saveLocationsToDisk(globalThis.__locations);
+
             // 2. Simpan ke database Supabase jika tersedia
             if (config.hasSupabase) {
                 try {
@@ -191,7 +228,15 @@ export default async function handler(req, res) {
 
             const map = new Map();
 
-            // 1. Ambil dari Supabase jika tersedia
+            // 1. Jika memori kosong, muat dari disk persistent storage
+            if (globalThis.__locations.length === 0) {
+                const diskData = loadLocationsFromDisk();
+                if (diskData.length > 0) {
+                    globalThis.__locations = diskData;
+                }
+            }
+
+            // 2. Ambil dari Supabase jika tersedia
             if (config.hasSupabase) {
                 try {
                     const response = await supabaseRequest(
@@ -268,6 +313,9 @@ export default async function handler(req, res) {
             } else if (transferId) {
                 globalThis.__locations = globalThis.__locations.filter(t => t.transferId !== transferId);
             }
+
+            // Simpan perubahan ke persistent disk
+            saveLocationsToDisk(globalThis.__locations);
 
             if (config.hasSupabase) {
                 try {

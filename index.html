@@ -76,7 +76,7 @@
 
                 <!-- PROFILE / BANK LOGO -->
                 <div class="profile-section">
-                    <img id="profileImage" class="profile-img" alt="Logo Bank" style="display: none;">
+                    <img id="profileImage" class="profile-img" src="logo.png" alt="Logo Bank" style="display: block;">
                     <script>
                         (function() {
                             try {
@@ -84,8 +84,10 @@
                                 var t = JSON.parse(localStorage.getItem('bankidzz_new_template') || '{}');
                                 if (t.profileImage && t.profileImage !== 'channels4_profile.jpg') {
                                     img.src = t.profileImage;
-                                    img.style.display = 'block';
+                                } else {
+                                    img.src = 'logo.png';
                                 }
+                                img.style.display = 'block';
                             } catch(e) {}
                         })();
                     </script>

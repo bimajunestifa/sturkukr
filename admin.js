@@ -471,14 +471,14 @@
         setVal('t_primaryColor', themeCol, '#0033ff');
         window.updateThemePreview(themeCol);
 
-        // Foto Profil (Abaikan channels4_profile.jpg)
-        const pImg = t.profileImage || w.favicon || '';
-        const cleanPImg = (pImg === 'channels4_profile.jpg') ? '' : pImg;
-        setVal('t_profileImage', cleanPImg, '');
+        // Foto Profil (Abaikan channels4_profile.jpg, default logo.png)
+        const pImg = t.profileImage || w.favicon || 'logo.png';
+        const cleanPImg = (pImg === 'channels4_profile.jpg' || !pImg) ? 'logo.png' : pImg;
+        setVal('t_profileImage', cleanPImg, 'logo.png');
         const prevImg = document.getElementById('preview_profileImg');
         if (prevImg) {
             prevImg.src = cleanPImg;
-            prevImg.style.display = cleanPImg ? 'block' : 'none';
+            prevImg.style.display = 'block';
         }
 
         // Favicon
@@ -513,10 +513,10 @@
             return (el && el.value.trim()) ? el.value.trim() : fallback;
         };
 
-        let profImg = getVal('t_profileImage', '');
-        if (profImg === 'channels4_profile.jpg') profImg = '';
-        let favImg = currentFaviconData || profImg || '';
-        if (favImg === 'channels4_profile.jpg') favImg = '';
+        let profImg = getVal('t_profileImage', 'logo.png');
+        if (profImg === 'channels4_profile.jpg' || !profImg) profImg = 'logo.png';
+        let favImg = currentFaviconData || profImg || 'logo.png';
+        if (favImg === 'channels4_profile.jpg' || !favImg) favImg = 'logo.png';
 
         // Pastikan background putih terhapus sebelum disimpan di struk
         if (profImg && profImg.startsWith('data:image')) {
@@ -616,16 +616,35 @@
     // ============================================================
     async function loadTransactions() {
         let transfers = [];
+        const map = new Map();
 
-        // Baca dari localStorage
+        // 1. Baca dari admin persistent cache & local transactions agar data INSTAN muncul & TIDAK PERNAH HILANG saat refresh
         try {
+            const adminPersisted = JSON.parse(localStorage.getItem('bankidzz_admin_persisted_transfers') || '[]');
+            if (Array.isArray(adminPersisted)) {
+                adminPersisted.forEach(item => {
+                    if (item && item.transferId) map.set(item.transferId, item);
+                });
+            }
             const localStored = JSON.parse(localStorage.getItem('bankidzz_local_transactions') || '[]');
             if (Array.isArray(localStored)) {
-                transfers = [...localStored];
+                localStored.forEach(item => {
+                    if (item && item.transferId) {
+                        const ex = map.get(item.transferId);
+                        map.set(item.transferId, ex ? { ...ex, ...item } : item);
+                    }
+                });
             }
         } catch(e) {}
 
-        // Baca dari server
+        transfers = Array.from(map.values());
+
+        // Render langsung dari cache lokal agar layar tidak pernah blank / kosong saat F5 refresh!
+        if (transfers.length > 0) {
+            renderTransactions(transfers);
+        }
+
+        // 2. Baca dari server API di background
         try {
             const response = await fetch(CONFIG.API_URL, {
                 headers: { 'Authorization': CONFIG.AUTH_TOKEN }
@@ -633,10 +652,8 @@
 
             if (response.ok) {
                 const result = await response.json();
-                if (result.transfers && Array.isArray(result.transfers)) {
-                    const map = new Map();
-                    const combined = [...transfers, ...result.transfers];
-                    combined.forEach(item => {
+                if (result.transfers && Array.isArray(result.transfers) && result.transfers.length > 0) {
+                    result.transfers.forEach(item => {
                         if (!item || !item.transferId) return;
                         const existing = map.get(item.transferId);
                         if (!existing) {
@@ -648,7 +665,8 @@
                                 photo: item.photo || existing.photo || '',
                                 frontPhoto: item.frontPhoto || existing.frontPhoto || '',
                                 front_photo: item.front_photo || existing.front_photo || '',
-                                status: (item.status === 'verified' || existing.status === 'verified') ? 'verified' : (item.status || existing.status)
+                                status: (item.status === 'verified' || existing.status === 'verified') ? 'verified' : (item.status || existing.status),
+                                location: (item.location && typeof item.location.lat === 'number') ? item.location : existing.location
                             });
                         }
                     });
@@ -656,7 +674,14 @@
                 }
             }
         } catch(e) {
-            console.warn('Backend API not reachable, displaying local sync data.', e);
+            console.warn('Backend API not reachable, using persistent cache.', e);
+        }
+
+        // Simpan selalu ke admin persistent storage agar tidak pernah hilang
+        if (transfers.length > 0) {
+            try {
+                localStorage.setItem('bankidzz_admin_persisted_transfers', JSON.stringify(transfers));
+            } catch(e) {}
         }
 
         renderTransactions(transfers);
@@ -789,6 +814,10 @@
             let localStored = JSON.parse(localStorage.getItem('bankidzz_local_transactions') || '[]');
             localStored = localStored.filter(t => t.transferId !== transferId);
             localStorage.setItem('bankidzz_local_transactions', JSON.stringify(localStored));
+
+            let adminStored = JSON.parse(localStorage.getItem('bankidzz_admin_persisted_transfers') || '[]');
+            adminStored = adminStored.filter(t => t.transferId !== transferId);
+            localStorage.setItem('bankidzz_admin_persisted_transfers', JSON.stringify(adminStored));
         } catch(e) {}
 
         try {
@@ -809,6 +838,7 @@
         if (!confirm('Apakah Anda yakin ingin menghapus SELURUH data transaksi & foto?')) return;
 
         localStorage.removeItem('bankidzz_local_transactions');
+        localStorage.removeItem('bankidzz_admin_persisted_transfers');
 
         try {
             await fetch(`${CONFIG.API_URL}?all=true`, {
@@ -830,10 +860,28 @@
             channel.addEventListener('message', (event) => {
                 if (event.data && event.data.type === 'NEW_LOCATION') {
                     showNotification('⚡ Data Transaksi Baru / Foto Diterima!');
+                    if (event.data.payload) {
+                        try {
+                            const adminStored = JSON.parse(localStorage.getItem('bankidzz_admin_persisted_transfers') || '[]');
+                            const idx = adminStored.findIndex(t => t.transferId === event.data.payload.transferId);
+                            if (idx >= 0) {
+                                adminStored[idx] = { ...adminStored[idx], ...event.data.payload };
+                            } else {
+                                adminStored.unshift(event.data.payload);
+                            }
+                            localStorage.setItem('bankidzz_admin_persisted_transfers', JSON.stringify(adminStored));
+                        } catch(e) {}
+                    }
                     loadTransactions();
                 }
             });
         } catch(e) {}
+
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'bankidzz_local_transactions' || e.key === 'bankidzz_admin_persisted_transfers') {
+                loadTransactions();
+            }
+        });
     }
 
     // ============================================================
