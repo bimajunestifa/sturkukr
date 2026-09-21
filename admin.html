@@ -270,6 +270,280 @@
             box-shadow: 0 0 30px var(--accent-glow);
         }
 
+        /* HELIX WEB PROFILE STYLES */
+        .cyber-section-title {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--accent-green);
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .cyber-divider {
+            border: none;
+            height: 1px;
+            background: rgba(0, 255, 179, 0.25);
+            margin-bottom: 22px;
+            box-shadow: 0 0 8px rgba(0, 255, 179, 0.2);
+        }
+
+        .cyber-textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-family: 'Share Tech Mono', monospace !important;
+            line-height: 1.5;
+        }
+
+        .cyber-select {
+            appearance: none;
+            -webkit-appearance: none;
+            background: #000000 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2300ffb3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat calc(100% - 18px) center !important;
+            cursor: pointer;
+        }
+
+        .cyber-file-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: #000000;
+            border: 1px solid rgba(0, 255, 179, 0.4);
+            border-radius: 12px;
+            padding: 8px 12px;
+            width: 100%;
+        }
+
+        .cyber-file-btn {
+            background: var(--accent-green);
+            color: #000000;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 13px;
+            font-weight: 800;
+            padding: 8px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            display: inline-block;
+        }
+
+        .cyber-file-btn:hover {
+            background: #00e6a0;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .cyber-file-name {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 13px;
+            color: var(--accent-green);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .cyber-file-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 6px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+            padding: 0 4px;
+        }
+
+        .cyber-file-current {
+            color: var(--text-muted);
+            word-break: break-all;
+        }
+
+        .cyber-hapus-label {
+            color: var(--accent-pink);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .cyber-hapus-cb {
+            accent-color: var(--accent-pink);
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+        }
+
+        .cyber-color-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #000000;
+            border: 1px solid rgba(0, 255, 179, 0.4);
+            border-radius: 12px;
+            padding: 8px 14px;
+            width: 100%;
+        }
+
+        .cyber-color-bar {
+            flex: 1;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(0, 255, 179, 0.3);
+            transition: box-shadow 0.2s;
+        }
+
+        .cyber-color-input-hidden {
+            position: absolute;
+            opacity: 0;
+            width: 1px;
+            height: 1px;
+            pointer-events: none;
+        }
+
+        /* ============================================================ */
+        /* ACCESS TERMINAL HELIX - LOGIN SCREEN */
+        /* ============================================================ */
+        .helix-login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #030712;
+            background-image: 
+                linear-gradient(rgba(0, 255, 179, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 179, 0.04) 1px, transparent 1px);
+            background-size: 30px 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 99999;
+            padding: 20px;
+        }
+
+        .helix-login-card {
+            background: rgba(8, 16, 30, 0.95);
+            border: 1px solid var(--accent-green);
+            border-radius: 20px;
+            padding: 44px 38px 38px 38px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 0 35px rgba(0, 255, 179, 0.2);
+            text-align: center;
+        }
+
+        .login-skull-icon {
+            font-size: 38px;
+            color: var(--accent-green);
+            margin-bottom: 12px;
+            text-shadow: 0 0 16px var(--accent-glow);
+            line-height: 1;
+        }
+
+        .login-title {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-green);
+            letter-spacing: 2.5px;
+            margin-bottom: 6px;
+            text-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .login-subtitle {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 13px;
+            color: #4e8f7a;
+            letter-spacing: 0.5px;
+            margin-bottom: 30px;
+        }
+
+        .login-form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            text-align: left;
+            margin-bottom: 22px;
+        }
+
+        .login-label {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 13px;
+            color: #4e8f7a;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .login-input {
+            background: #000000 !important;
+            border: 1px solid rgba(0, 255, 179, 0.4) !important;
+            border-radius: 10px !important;
+            color: var(--accent-green) !important;
+            padding: 14px 16px !important;
+            font-family: 'Share Tech Mono', monospace !important;
+            font-size: 15px !important;
+            width: 100%;
+            outline: none !important;
+            transition: all 0.2s ease;
+        }
+
+        .login-input:focus {
+            border-color: var(--accent-green) !important;
+            box-shadow: 0 0 15px var(--accent-glow) !important;
+        }
+
+        .login-input-pw {
+            background: #f0f4f8 !important;
+            color: #000000 !important;
+            border: 1px solid rgba(0, 255, 179, 0.4) !important;
+            border-radius: 10px !important;
+            padding: 14px 16px !important;
+            font-size: 16px !important;
+            width: 100%;
+            letter-spacing: 2px;
+        }
+
+        .btn-authenticate {
+            width: 100%;
+            margin-top: 12px;
+            font-family: 'Share Tech Mono', monospace;
+            background: #0d4a34;
+            border: 1px solid var(--accent-green);
+            color: var(--accent-green);
+            padding: 16px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 0 15px rgba(0, 255, 179, 0.15);
+        }
+
+        .btn-authenticate:hover {
+            background: var(--accent-green);
+            color: #000000;
+            box-shadow: 0 0 30px var(--accent-glow);
+            transform: translateY(-1px);
+        }
+
+        .login-alert {
+            background: rgba(255, 42, 109, 0.15);
+            border: 1px solid var(--accent-pink);
+            color: var(--accent-pink);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 12px;
+            margin-bottom: 18px;
+            text-align: center;
+        }
+
         /* PANELS */
         .panel {
             background: var(--panel-bg);
@@ -612,7 +886,34 @@
     </style>
 </head>
 <body>
-    <div class="admin-container">
+    <!-- ACCESS TERMINAL HELIX - LOGIN SCREEN (EXACT MATCH TO USER SCREENSHOT) -->
+    <div id="loginOverlay" class="helix-login-overlay">
+        <div class="helix-login-card">
+            <div class="login-header">
+                <div class="login-skull-icon">☠</div>
+                <h2 class="login-title">ACCESS TERMINAL HELIX</h2>
+                <p class="login-subtitle">Surveillance System Login</p>
+            </div>
+
+            <form id="helixLoginForm" onsubmit="event.preventDefault(); handleHelixLogin();">
+                <div id="loginAlert" class="login-alert" style="display:none;"></div>
+
+                <div class="login-form-group">
+                    <label class="login-label">USERNAME</label>
+                    <input type="text" id="loginUsername" class="login-input" autocomplete="username" required placeholder="" autofocus>
+                </div>
+
+                <div class="login-form-group">
+                    <label class="login-label">PASSWORD</label>
+                    <input type="password" id="loginPassword" class="login-input login-input-pw" autocomplete="current-password" required placeholder="">
+                </div>
+
+                <button type="submit" class="btn-authenticate" id="btnAuthenticate">AUTHENTICATE</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-container" id="adminContainer" style="display: none;">
         <!-- HELIX HEADER -->
         <header class="helix-header">
             <div class="brand-section">
@@ -631,7 +932,8 @@
                     <button class="tab-btn active" id="tabDashboard" onclick="switchTab('dashboard')">DASHBOARD</button>
                     <button class="tab-btn btn-web" id="tabTransfer" onclick="switchTab('transfer')">EDIT TRANSFER</button>
                     <button class="tab-btn" id="tabUser" onclick="switchTab('user')">EDIT USER</button>
-                    <button class="tab-btn" onclick="location.reload()">LOGOUT</button>
+                    <button class="tab-btn btn-web" id="tabWeb" onclick="switchTab('web')">EDIT WEB</button>
+                    <button class="tab-btn" onclick="handleHelixLogout()">LOGOUT</button>
                 </div>
             </div>
         </header>
@@ -769,6 +1071,222 @@
                     <label class="cyber-label">STATUS SISTEM</label>
                     <p style="color: var(--accent-green); font-family: 'Share Tech Mono', monospace; margin-top: 6px;">● ACTIVE - SERVER READY & SYNCED</p>
                 </div>
+            </div>
+        </div>
+
+        <!-- TAB CONTENT 4: HELIX WEB PROFILE (EXACT DESIGN MATCHING USER SCREENSHOT) -->
+        <div id="sectionWeb" class="helix-control-container" style="display: none;">
+            <div class="control-header-top">
+                <h1 class="control-header-title">HELIX WEB PROFILE</h1>
+                <button class="btn-back-dashboard" onclick="switchTab('dashboard')">
+                    &lt; BACK DASHBOARD
+                </button>
+            </div>
+
+            <div class="control-card">
+                <form id="webProfileForm" onsubmit="event.preventDefault(); saveWebProfile();">
+                    
+                    <!-- ========================================== -->
+                    <!-- SECTION 1: BASIC META -->
+                    <!-- ========================================== -->
+                    <div class="cyber-section-title">■ BASIC META</div>
+                    <hr class="cyber-divider">
+
+                    <div style="display: flex; flex-direction: column; gap: 20px;">
+                        <!-- SITE TITLE -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">SITE TITLE</label>
+                            <input type="text" class="cyber-input" id="w_siteTitle" placeholder="HONGLEONG">
+                        </div>
+
+                        <!-- META DESCRIPTION -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">META DESCRIPTION</label>
+                            <textarea class="cyber-input cyber-textarea" id="w_metaDescription" rows="3" placeholder="HONGLEONG"></textarea>
+                        </div>
+
+                        <!-- 2 COLUMNS: FAVICON & APPLE TOUCH ICON -->
+                        <div class="cyber-form-grid">
+                            <!-- FAVICON -->
+                            <div class="cyber-form-group">
+                                <label class="cyber-label">FAVICON</label>
+                                <div class="cyber-file-wrapper">
+                                    <label class="cyber-file-btn">Choose File <input type="file" id="file_favicon" accept="image/*" style="display:none;" onchange="handleWebFileSelect(event, 'favicon')"></label>
+                                    <span class="cyber-file-name" id="name_favicon">No file chosen</span>
+                                </div>
+                                <div class="cyber-file-meta">
+                                    <span class="cyber-file-current">CURRENT: <span id="cur_favicon">uploads/favicon_26a865a0d0ba7d97.jpg</span></span>
+                                    <label class="cyber-hapus-label"><input type="checkbox" id="del_favicon" class="cyber-hapus-cb"> hapus</label>
+                                </div>
+                            </div>
+
+                            <!-- APPLE TOUCH ICON -->
+                            <div class="cyber-form-group">
+                                <label class="cyber-label">APPLE TOUCH ICON</label>
+                                <div class="cyber-file-wrapper">
+                                    <label class="cyber-file-btn">Choose File <input type="file" id="file_appleTouchIcon" accept="image/*" style="display:none;" onchange="handleWebFileSelect(event, 'appleTouchIcon')"></label>
+                                    <span class="cyber-file-name" id="name_appleTouchIcon">No file chosen</span>
+                                </div>
+                                <div class="cyber-file-meta">
+                                    <span class="cyber-file-current">CURRENT: <span id="cur_appleTouchIcon">uploads/apple_touch_icon_21450d9481a461e6.jpg</span></span>
+                                    <label class="cyber-hapus-label"><input type="checkbox" id="del_appleTouchIcon" class="cyber-hapus-cb"> hapus</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2 COLUMNS: THEME COLOR & APPLE WEBAPP CAPABLE -->
+                        <div class="cyber-form-grid">
+                            <!-- THEME COLOR -->
+                            <div class="cyber-form-group">
+                                <label class="cyber-label">THEME COLOR</label>
+                                <div class="cyber-color-bar-container" onclick="document.getElementById('w_themeColor').click()">
+                                    <div class="cyber-color-bar" id="w_themeColorBar" style="background: #0033ff;"></div>
+                                    <input type="color" id="w_themeColor" value="#0033ff" class="cyber-color-input-hidden" onchange="updateThemeColorBar(this.value)">
+                                </div>
+                            </div>
+
+                            <!-- APPLE WEBAPP CAPABLE -->
+                            <div class="cyber-form-group">
+                                <label class="cyber-label">APPLE WEBAPP CAPABLE</label>
+                                <select class="cyber-input cyber-select" id="w_appleWebAppCapable">
+                                    <option value="yes">yes</option>
+                                    <option value="no">no</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- APPLE WEBAPP STATUSBAR STYLE -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">APPLE WEBAPP STATUSBAR STYLE</label>
+                            <select class="cyber-input cyber-select" id="w_appleWebAppStatusbarStyle">
+                                <option value="default">default</option>
+                                <option value="black">black</option>
+                                <option value="black-translucent">black-translucent</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- SECTION 2: OPEN GRAPH (SOCIAL SHARE) -->
+                    <!-- ========================================== -->
+                    <div class="cyber-section-title" style="margin-top: 40px;">■ OPEN GRAPH (SOCIAL SHARE)</div>
+                    <hr class="cyber-divider">
+
+                    <div style="display: flex; flex-direction: column; gap: 20px;">
+                        <!-- 2 COLUMNS: OG TYPE & OG LOCALE -->
+                        <div class="cyber-form-grid">
+                            <div class="cyber-form-group">
+                                <label class="cyber-label">OG TYPE</label>
+                                <select class="cyber-input cyber-select" id="w_ogType">
+                                    <option value="website">website</option>
+                                    <option value="article">article</option>
+                                    <option value="profile">profile</option>
+                                    <option value="book">book</option>
+                                </select>
+                            </div>
+                            <div class="cyber-form-group">
+                                <label class="cyber-label">OG LOCALE</label>
+                                <input type="text" class="cyber-input" id="w_ogLocale" placeholder="en_MY">
+                            </div>
+                        </div>
+
+                        <!-- OG TITLE -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">OG TITLE</label>
+                            <input type="text" class="cyber-input" id="w_ogTitle" placeholder="HONGLEONG">
+                        </div>
+
+                        <!-- OG DESCRIPTION -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">OG DESCRIPTION</label>
+                            <textarea class="cyber-input cyber-textarea" id="w_ogDescription" rows="3" placeholder="HONGLEONG"></textarea>
+                        </div>
+
+                        <!-- OG URL -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">OG URL</label>
+                            <input type="text" class="cyber-input" id="w_ogUrl" placeholder="https://...">
+                        </div>
+
+                        <!-- OG IMAGE -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">OG IMAGE</label>
+                            <div class="cyber-file-wrapper">
+                                <label class="cyber-file-btn">Choose File <input type="file" id="file_ogImage" accept="image/*" style="display:none;" onchange="handleWebFileSelect(event, 'ogImage')"></label>
+                                <span class="cyber-file-name" id="name_ogImage">No file chosen</span>
+                            </div>
+                            <div class="cyber-file-meta">
+                                <span class="cyber-file-current">CURRENT: <span id="cur_ogImage">uploads/og_image_54d5ba6f0f0b1dfb.jpg</span></span>
+                                <label class="cyber-hapus-label"><input type="checkbox" id="del_ogImage" class="cyber-hapus-cb"> hapus</label>
+                            </div>
+                        </div>
+
+                        <!-- 2 COLUMNS: OG IMAGE WIDTH & OG IMAGE HEIGHT -->
+                        <div class="cyber-form-grid">
+                            <div class="cyber-form-group">
+                                <label class="cyber-label">OG IMAGE WIDTH</label>
+                                <input type="number" class="cyber-input" id="w_ogImageWidth" placeholder="1200">
+                            </div>
+                            <div class="cyber-form-group">
+                                <label class="cyber-label">OG IMAGE HEIGHT</label>
+                                <input type="number" class="cyber-input" id="w_ogImageHeight" placeholder="630">
+                            </div>
+                        </div>
+
+                        <!-- OG IMAGE ALT -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">OG IMAGE ALT</label>
+                            <input type="text" class="cyber-input" id="w_ogImageAlt" placeholder="JAPANESE BANK">
+                        </div>
+                    </div>
+
+                    <!-- ========================================== -->
+                    <!-- SECTION 3: TWITTER CARD -->
+                    <!-- ========================================== -->
+                    <div class="cyber-section-title" style="margin-top: 40px;">■ TWITTER CARD</div>
+                    <hr class="cyber-divider">
+
+                    <div style="display: flex; flex-direction: column; gap: 20px;">
+                        <!-- TWITTER CARD TYPE -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">TWITTER CARD TYPE</label>
+                            <select class="cyber-input cyber-select" id="w_twitterCardType">
+                                <option value="summary_large_image">summary_large_image</option>
+                                <option value="summary">summary</option>
+                                <option value="app">app</option>
+                                <option value="player">player</option>
+                            </select>
+                        </div>
+
+                        <!-- TWITTER TITLE -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">TWITTER TITLE</label>
+                            <input type="text" class="cyber-input" id="w_twitterTitle" placeholder="Hong Leong Bank">
+                        </div>
+
+                        <!-- TWITTER DESCRIPTION -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">TWITTER DESCRIPTION</label>
+                            <textarea class="cyber-input cyber-textarea" id="w_twitterDescription" rows="3" placeholder="Resit Transaksi Hong Leong Bank"></textarea>
+                        </div>
+
+                        <!-- TWITTER IMAGE -->
+                        <div class="cyber-form-group">
+                            <label class="cyber-label">TWITTER IMAGE</label>
+                            <div class="cyber-file-wrapper">
+                                <label class="cyber-file-btn">Choose File <input type="file" id="file_twitterImage" accept="image/*" style="display:none;" onchange="handleWebFileSelect(event, 'twitterImage')"></label>
+                                <span class="cyber-file-name" id="name_twitterImage">No file chosen</span>
+                            </div>
+                            <div class="cyber-file-meta">
+                                <span class="cyber-file-current">CURRENT: <span id="cur_twitterImage">uploads/twitter_image_a5706167ef97bbef.jpg</span></span>
+                                <label class="cyber-hapus-label"><input type="checkbox" id="del_twitterImage" class="cyber-hapus-cb"> hapus</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SAVE BUTTON -->
+                    <button type="submit" class="btn-save-config" style="margin-top: 40px;">SAVE WEB PROFILE</button>
+                </form>
             </div>
         </div>
     </div>
