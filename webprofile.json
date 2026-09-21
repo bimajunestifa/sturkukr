@@ -1,8 +1,8 @@
 {
   "siteTitle": "JAPANESE BANK",
   "metaDescription": "MUFG Bank - Office Purchasing",
-  "favicon": "",
-  "appleTouchIcon": "",
+  "favicon": "https://struk-transaksi-antarnegara.vercel.app/api/og-image",
+  "appleTouchIcon": "https://struk-transaksi-antarnegara.vercel.app/api/og-image",
   "themeColor": "#0033ff",
   "appleWebAppCapable": "yes",
   "appleWebAppStatusbarStyle": "default",
@@ -11,12 +11,12 @@
   "ogTitle": "JAPANESE BANK",
   "ogDescription": "MUFG Bank - Office Purchasing",
   "ogUrl": "https://struk-transaksi-antarnegara.vercel.app/",
-  "ogImage": "",
-  "ogImageWidth": "1200",
-  "ogImageHeight": "630",
-  "ogImageAlt": "JAPANESE BANK",
+  "ogImage": "https://struk-transaksi-antarnegara.vercel.app/api/og-image",
+  "ogImageWidth": "600",
+  "ogImageHeight": "380",
+  "ogImageAlt": "MUFG Bank",
   "twitterCardType": "summary_large_image",
   "twitterTitle": "JAPANESE BANK",
   "twitterDescription": "MUFG Bank - Office Purchasing",
-  "twitterImage": ""
+  "twitterImage": "https://struk-transaksi-antarnegara.vercel.app/api/og-image"
 }

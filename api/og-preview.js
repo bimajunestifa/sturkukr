@@ -59,7 +59,7 @@ export default async function handler(req, res) {
 
     const title = profile.ogTitle || profile.siteTitle || 'JAPANESE BANK';
     const desc = profile.ogDescription || profile.metaDescription || 'MUFG Bank - Office Purchasing';
-    const image = (profile.ogImage && profile.ogImage !== 'uploads/channels4_profile.jpg') ? profile.ogImage : '';
+    const imageUrl = 'https://struk-transaksi-antarnegara.vercel.app/api/og-image';
     const color = profile.themeColor || '#0033ff';
 
     const html = `<!DOCTYPE html>
@@ -75,14 +75,18 @@ export default async function handler(req, res) {
     <meta property="og:site_name" content="${title}">
     <meta property="og:title" content="${title}">
     <meta property="og:description" content="${desc}">
-    <meta property="og:image" content="${image}">
+    <meta property="og:image" content="${imageUrl}">
+    <meta property="og:image:secure_url" content="${imageUrl}">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="600">
+    <meta property="og:image:height" content="380">
     <meta property="og:url" content="https://struk-transaksi-antarnegara.vercel.app/">
     
     <!-- TWITTER -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="${title}">
     <meta name="twitter:description" content="${desc}">
-    <meta name="twitter:image" content="${image}">
+    <meta name="twitter:image" content="${imageUrl}">
 
     <meta http-equiv="refresh" content="0; url=/">
     <script>window.location.replace('/');</script>

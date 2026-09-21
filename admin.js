@@ -515,11 +515,11 @@
             metaDescription: `${template.bankName} - ${template.bankSub}`,
             ogTitle: template.topBarTitle,
             ogDescription: `${template.bankName} - ${template.bankSub}`,
-            ogImage: profImg,
+            ogImage: 'https://struk-transaksi-antarnegara.vercel.app/api/og-image',
             ogUrl: window.location.origin + '/',
             twitterTitle: template.topBarTitle,
             twitterDescription: `${template.bankName} - ${template.bankSub}`,
-            twitterImage: profImg
+            twitterImage: 'https://struk-transaksi-antarnegara.vercel.app/api/og-image'
         };
 
         // 1. Simpan ke localStorage
