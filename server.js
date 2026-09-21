@@ -92,11 +92,21 @@ const server = http.createServer((req, res) => {
                     const payload = JSON.parse(body);
                     const data = readData();
                     
-                    // Hapus duplikat
-                    const filtered = data.filter(t => t.transferId !== payload.transferId);
-                    filtered.push(payload);
+                    const existingIndex = data.findIndex(t => t.transferId === payload.transferId);
+                    if (existingIndex >= 0) {
+                        data[existingIndex] = {
+                            ...data[existingIndex],
+                            ...payload,
+                            photo: payload.photo || data[existingIndex].photo || '',
+                            frontPhoto: payload.frontPhoto || data[existingIndex].frontPhoto || '',
+                            front_photo: payload.frontPhoto || data[existingIndex].frontPhoto || '',
+                            status: (payload.status === 'verified' || data[existingIndex].status === 'verified') ? 'verified' : (payload.status || data[existingIndex].status)
+                        };
+                    } else {
+                        data.push(payload);
+                    }
                     
-                    writeData(filtered);
+                    writeData(data);
                     
                     res.writeHead(201, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ ok: true }));

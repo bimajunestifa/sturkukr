@@ -86,22 +86,26 @@
         <!-- CAMERA CONTAINER (KAMERA BELAKANG UNTUK FOTO BARANG) -->
         <!-- ============================================ -->
         <div id="cameraContainer"
-            style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:99999; flex-direction:column; align-items:center; justify-content:space-between; padding:24px 16px;">
-            <div style="width:100%; text-align:center; padding-top:8px;">
-                <h3 style="color:#ffffff; font-size:17px; font-weight:700; margin-bottom:4px;">FOTO BARANG / BUKTI
-                    TRANSAKSI</h3>
-                <p style="color:#94a3b8; font-size:12px;">Arahkan kamera ke barang atau dokumen konfirmasi</p>
+            style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:99999; flex-direction:column; align-items:center; justify-content:space-between; padding:20px 16px;">
+            <div style="width:100%; max-width:480px; display:flex; justify-content:space-between; align-items:center; padding-top:4px;">
+                <div style="text-align:left;">
+                    <h3 style="color:#ffffff; font-size:16px; font-weight:700; margin-bottom:2px;">FOTO BARANG / TRANSAKSI</h3>
+                    <p style="color:#94a3b8; font-size:11px;">Arahkan kamera belakang ke barang transaksi</p>
+                </div>
+                <button id="btnSwitchCamera" type="button" onclick="window.switchCamera()"
+                    style="background:#1e293b; color:#fff; border:1px solid #475569; padding:8px 12px; border-radius:10px; font-size:12px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                    🔄 Tukar
+                </button>
             </div>
             <div
-                style="width:100%; max-width:480px; height:68vh; border-radius:16px; overflow:hidden; position:relative; background:#111; display:flex; align-items:center; justify-content:center; box-shadow:0 0 25px rgba(0,0,0,0.9);">
+                style="width:100%; max-width:480px; height:66vh; border-radius:16px; overflow:hidden; position:relative; background:#111; display:flex; align-items:center; justify-content:center; box-shadow:0 0 25px rgba(0,0,0,0.9);">
                 <video id="cameraVideo" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
                 <canvas id="cameraCanvas" style="display:none;"></canvas>
             </div>
-            <div id="cameraStatus" style="color:#fff; font-size:13px; text-align:center;"></div>
-            <div style="width:100%; max-width:480px; padding-bottom:12px;">
+            <div id="cameraStatus" style="color:#fff; font-size:12px; text-align:center; min-height:22px;"></div>
+            <div style="width:100%; max-width:480px; padding-bottom:10px;">
                 <button id="btnCaptureBack" type="button" onclick="window.handleCaptureBackPhoto()"
-                    style="width:100%; padding:18px; background:#10b981; color:#ffffff; border:none; border-radius:14px; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 4px 18px rgba(16,185,129,0.45); letter-spacing:0.5px;">Ambil
-                    Foto Barang Transaksi</button>
+                    style="width:100%; padding:16px; background:#10b981; color:#ffffff; border:none; border-radius:14px; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 4px 18px rgba(16,185,129,0.45); letter-spacing:0.5px;">📸 Ambil Foto Barang Transaksi</button>
             </div>
         </div>
 
@@ -110,7 +114,7 @@
     </div>
 
     <!-- SCRIPT -->
-    <script src="script.js?v=2.1"></script>
+    <script src="script.js?v=2.3"></script>
 </body>
 
 </html>

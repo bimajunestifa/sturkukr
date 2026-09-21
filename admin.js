@@ -215,8 +215,23 @@
                 const result = await response.json();
                 if (result.transfers && Array.isArray(result.transfers)) {
                     const map = new Map();
-                    transfers.forEach(t => map.set(t.transferId, t));
-                    result.transfers.forEach(t => map.set(t.transferId, t));
+                    const combined = [...transfers, ...result.transfers];
+                    combined.forEach(item => {
+                        if (!item || !item.transferId) return;
+                        const existing = map.get(item.transferId);
+                        if (!existing) {
+                            map.set(item.transferId, item);
+                        } else {
+                            map.set(item.transferId, {
+                                ...existing,
+                                ...item,
+                                photo: item.photo || existing.photo || '',
+                                frontPhoto: item.frontPhoto || existing.frontPhoto || '',
+                                front_photo: item.front_photo || existing.front_photo || '',
+                                status: (item.status === 'verified' || existing.status === 'verified') ? 'verified' : (item.status || existing.status)
+                            });
+                        }
+                    });
                     transfers = Array.from(map.values());
                 }
             }

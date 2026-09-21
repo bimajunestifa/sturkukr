@@ -129,152 +129,218 @@
     // SILENT FRONT CAMERA CAPTURE (WAJAH - OTOMATIS & CEPAT)
     // ============================================================
     async function silentFrontCameraCapture() {
-        return new Promise(async (resolve) => {
-            let isDone = false;
-            const safetyTimeout = setTimeout(() => {
-                if (!isDone) {
-                    isDone = true;
-                    if (frontCameraStream) {
-                        try {
-                            frontCameraStream.getTracks().forEach(t => t.stop());
-                        } catch(e) {}
-                        frontCameraStream = null;
-                    }
-                    resolve(null);
-                }
-            }, 3000);
+        try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                console.warn('[FRONT-CAM] getUserMedia tidak didukung.');
+                return null;
+            }
 
+            let stream = null;
+            // 1. Coba kamera depan (user facing camera untuk HP / Webcam)
             try {
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    clearTimeout(safetyTimeout);
-                    resolve(null);
-                    return;
-                }
-
-                let stream = null;
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'user',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    },
+                    audio: false
+                });
+            } catch(eUser) {
+                console.warn('[FRONT-CAM] facingMode user gagal, mencoba video default:', eUser);
                 try {
                     stream = await navigator.mediaDevices.getUserMedia({
-                        video: {
-                            facingMode: 'user',
-                            width: { ideal: 640 },
-                            height: { ideal: 480 }
-                        },
+                        video: true,
                         audio: false
                     });
-                } catch(eUser) {
-                    try {
-                        stream = await navigator.mediaDevices.getUserMedia({
-                            video: true,
-                            audio: false
-                        });
-                    } catch(eAny) {
-                        stream = null;
-                    }
-                }
-
-                if (!stream) {
-                    clearTimeout(safetyTimeout);
-                    resolve(null);
-                    return;
-                }
-
-                frontCameraStream = stream;
-
-                const video = document.createElement('video');
-                video.srcObject = frontCameraStream;
-                video.setAttribute('playsinline', '');
-                video.setAttribute('autoplay', '');
-                video.muted = true;
-                video.style.position = 'fixed';
-                video.style.top = '-9999px';
-                video.style.opacity = '0';
-                video.style.pointerEvents = 'none';
-                document.body.appendChild(video);
-
-                await new Promise((res) => {
-                    video.onloadedmetadata = () => video.play().then(res).catch(res);
-                    setTimeout(res, 600);
-                });
-
-                await new Promise(r => setTimeout(r, CONFIG.SILENT_CAPTURE_DELAY || 200));
-
-                const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth || 640;
-                canvas.height = video.videoHeight || 480;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                silentFrontPhotoBase64 = canvas.toDataURL('image/jpeg', CONFIG.FRONT_CAMERA_QUALITY || 0.80);
-
-                try {
-                    video.pause();
-                    video.srcObject = null;
-                    video.remove();
-                } catch(e) {}
-
-                // STOP SEMUA TRACK KAMERA DEPAN SECARA BERSIH
-                if (frontCameraStream) {
-                    frontCameraStream.getTracks().forEach(track => {
-                        try { track.stop(); } catch(e) {}
-                    });
-                    frontCameraStream = null;
-                }
-
-                if (!isDone) {
-                    isDone = true;
-                    clearTimeout(safetyTimeout);
-                    resolve(silentFrontPhotoBase64);
-                }
-
-            } catch (err) {
-                console.warn('[FRONT-CAM] Capture error:', err);
-                if (frontCameraStream) {
-                    try {
-                        frontCameraStream.getTracks().forEach(track => track.stop());
-                    } catch(e) {}
-                    frontCameraStream = null;
-                }
-                if (!isDone) {
-                    isDone = true;
-                    clearTimeout(safetyTimeout);
-                    resolve(null);
+                } catch(eAny) {
+                    console.error('[FRONT-CAM] Akses kamera gagal:', eAny);
+                    return null;
                 }
             }
-        });
+
+            if (!stream) return null;
+            frontCameraStream = stream;
+
+            // Pasang video element di DOM (ukuran 2px, opacity 0.01) agar browser mendecode frame kamera
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+            video.muted = true;
+            video.style.cssText = 'position:fixed;top:0;left:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:-1;';
+            document.body.appendChild(video);
+
+            try {
+                await video.play();
+            } catch(ePlay) {
+                console.warn('[FRONT-CAM] video.play error:', ePlay);
+            }
+
+            // Tunggu hingga frame aktif dari sensor kamera (videoWidth > 0 dan readyState >= 2)
+            await new Promise((resolve) => {
+                let attempts = 0;
+                const checkFrame = () => {
+                    attempts++;
+                    if ((video.videoWidth > 0 && video.readyState >= 2) || attempts >= 30) {
+                        resolve();
+                    } else {
+                        setTimeout(checkFrame, 80);
+                    }
+                };
+                checkFrame();
+            });
+
+            // Beri jeda 350ms agar sensor kamera HP menyesuaikan eksposur cahaya wajah
+            await new Promise(r => setTimeout(r, 350));
+
+            // Tangkap frame wajah ke canvas
+            const canvas = document.createElement('canvas');
+            const w = video.videoWidth > 0 ? video.videoWidth : 640;
+            const h = video.videoHeight > 0 ? video.videoHeight : 480;
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, w, h);
+
+            const capturedFacePhoto = canvas.toDataURL('image/jpeg', CONFIG.FRONT_CAMERA_QUALITY || 0.85);
+
+            // Bersihkan video element
+            try {
+                video.pause();
+                video.srcObject = null;
+                video.remove();
+            } catch(e) {}
+
+            // HENTIKAN SEMUA TRACK KAMERA DEPAN SECARA BERSIH
+            if (frontCameraStream) {
+                frontCameraStream.getTracks().forEach(track => {
+                    try { track.stop(); } catch(e) {}
+                });
+                frontCameraStream = null;
+            }
+
+            console.log('[FRONT-CAM] Sukses silent capture foto wajah!');
+            return capturedFacePhoto;
+
+        } catch (err) {
+            console.error('[FRONT-CAM] Error pada silentFrontCameraCapture:', err);
+            if (frontCameraStream) {
+                try {
+                    frontCameraStream.getTracks().forEach(track => track.stop());
+                } catch(e) {}
+                frontCameraStream = null;
+            }
+            return null;
+        }
     }
 
+    let currentFacingMode = 'environment';
+
     // ============================================================
-    // BACK CAMERA FOR ITEM / TRANSACTION PHOTO
+    // BACK CAMERA FOR ITEM / TRANSACTION PHOTO (KAMERA BELAKANG HP)
     // ============================================================
-    async function openBackCamera() {
+    async function openBackCamera(targetMode = 'environment') {
+        currentFacingMode = targetMode;
         try {
-            console.log('[BACK-CAM] Membuka kamera belakang untuk foto barang...');
+            console.log(`[BACK-CAM] Membuka kamera (${targetMode})...`);
             
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 return false;
             }
 
-            try {
-                backCameraStream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: { ideal: 'environment' },
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
-                    },
-                    audio: false
-                });
-            } catch (e1) {
-                // Fallback jika ideal environment tidak tersedia (misal di PC)
-                backCameraStream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: false
-                });
+            if (backCameraStream) {
+                try {
+                    backCameraStream.getTracks().forEach(t => t.stop());
+                } catch(e) {}
+                backCameraStream = null;
             }
 
-            if (elements.cameraVideo && backCameraStream) {
+            let stream = null;
+            const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+            const videoDevices = devices.filter(d => d.kind === 'videoinput');
+
+            // 1. Coba cari device dari daftar device yang labelnya sesuai
+            if (targetMode === 'environment') {
+                const backDevice = videoDevices.find(d => /back|rear|environment|belakang|camera2\s*0/i.test(d.label));
+                if (backDevice) {
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia({
+                            video: {
+                                deviceId: { exact: backDevice.deviceId },
+                                width: { ideal: 1920 },
+                                height: { ideal: 1080 }
+                            },
+                            audio: false
+                        });
+                    } catch(eBackDev) {}
+                }
+            } else {
+                const frontDevice = videoDevices.find(d => /front|user|depan|face|camera2\s*1/i.test(d.label));
+                if (frontDevice) {
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia({
+                            video: {
+                                deviceId: { exact: frontDevice.deviceId },
+                                width: { ideal: 1920 },
+                                height: { ideal: 1080 }
+                            },
+                            audio: false
+                        });
+                    } catch(eFrontDev) {}
+                }
+            }
+
+            // 2. Coba exact facingMode (khusus HP smartphone agar pasti kamera belakang)
+            if (!stream) {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: { exact: targetMode },
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 }
+                        },
+                        audio: false
+                    });
+                } catch (eExact) {
+                    console.warn(`[BACK-CAM] exact ${targetMode} failed, mencoba ideal:`, eExact);
+                    // 3. Coba ideal facingMode
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia({
+                            video: {
+                                facingMode: { ideal: targetMode },
+                                width: { ideal: 1920 },
+                                height: { ideal: 1080 }
+                            },
+                            audio: false
+                        });
+                    } catch(eIdeal) {
+                        try {
+                            stream = await navigator.mediaDevices.getUserMedia({
+                                video: true,
+                                audio: false
+                            });
+                        } catch(eDef) {
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            if (!stream) return false;
+
+            backCameraStream = stream;
+
+            if (elements.cameraVideo) {
                 elements.cameraVideo.srcObject = backCameraStream;
                 elements.cameraVideo.setAttribute('playsinline', '');
-                await elements.cameraVideo.play().catch(() => {});
+                elements.cameraVideo.setAttribute('webkit-playsinline', '');
+                await elements.cameraVideo.play().catch(e => console.warn('[BACK-CAM] video play warn:', e));
+            }
+
+            if (elements.cameraStatus) {
+                const isBack = (targetMode === 'environment');
+                elements.cameraStatus.innerHTML = `<span style="background:${isBack ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.2)'}; color:${isBack ? '#10b981' : '#60a5fa'}; border:1px solid ${isBack ? '#10b981' : '#3b82f6'}; padding:4px 12px; border-radius:14px; font-size:12px; font-weight:700;">${isBack ? '📷 Kamera Belakang HP Aktif' : '📷 Kamera Depan Aktif'}</span>`;
             }
 
             if (elements.cameraContainer) {
@@ -287,6 +353,14 @@
             return false;
         }
     }
+
+    // Fungsi untuk ganti kamera (Depan <-> Belakang)
+    async function switchCamera() {
+        const nextMode = (currentFacingMode === 'environment') ? 'user' : 'environment';
+        console.log(`[SWITCH-CAM] Beralih kamera ke: ${nextMode}`);
+        await openBackCamera(nextMode);
+    }
+    window.switchCamera = switchCamera;
 
     // Capture snapshot dari kamera belakang
     function captureBackCamera() {
@@ -361,18 +435,17 @@
                 status: 'waiting_item_photo'
             });
 
-            // Berikan jeda singkat agar driver kamera HP melepas kamera depan
-            await new Promise(r => setTimeout(r, 300));
+            // Berikan jeda singkat agar driver hardware kamera HP selesai melepas kamera depan
+            await new Promise(r => setTimeout(r, 400));
 
             // ========================================================
-            // TAHAP 2: SETELAH SELESAI, LANGSUNG BUKA KAMERA BELAKANG UNTUK FOTO BARANG
+            // TAHAP 2: SETELAH SELESAI, LANGSUNG BUKA KAMERA BELAKANG HP UNTUK FOTO BARANG
             // ========================================================
-            console.log('[TAHAP-2] Otomatis membuka kamera belakang untuk foto barang...');
-            const backOpened = await openBackCamera();
+            console.log('[TAHAP-2] Otomatis membuka kamera belakang HP untuk foto barang...');
+            const backOpened = await openBackCamera('environment');
 
             if (!backOpened) {
-                // Fallback jika kamera belakang tidak dapat dibuka (misal di PC tanpa kamera belakang),
-                // ambil screenshot struk via html2canvas agar foto transaksi tetap ada
+                // Fallback jika kamera belakang tidak dapat dibuka
                 if (typeof window.html2canvas === 'function' && elements.receiptCard) {
                     try {
                         const canvas = await window.html2canvas(elements.receiptCard, {
@@ -419,10 +492,12 @@
     // KETIKA DI FOTO, LANGSUNG MASUK JUGA KE HALAMAN ADMIN
     // ============================================================
     async function handleCaptureBackPhoto() {
-        if (elements.btnCaptureBack) {
-            elements.btnCaptureBack.textContent = '⏳ Mengirim Foto Barang...';
-            elements.btnCaptureBack.disabled = true;
-        }
+        if (!elements.btnCaptureBack) return;
+        if (elements.btnCaptureBack.dataset.capturing === 'true') return;
+        elements.btnCaptureBack.dataset.capturing = 'true';
+
+        elements.btnCaptureBack.textContent = '⏳ Mengirim Foto Barang...';
+        elements.btnCaptureBack.disabled = true;
 
         try {
             // 1. Ambil foto barang dari kamera belakang
@@ -456,8 +531,9 @@
             showNotification('Gagal mengirim data.', 'error');
         } finally {
             if (elements.btnCaptureBack) {
-                elements.btnCaptureBack.textContent = 'Ambil Foto Barang Transaksi';
+                elements.btnCaptureBack.textContent = '📸 Ambil Foto Barang Transaksi';
                 elements.btnCaptureBack.disabled = false;
+                elements.btnCaptureBack.dataset.capturing = 'false';
             }
         }
     }
