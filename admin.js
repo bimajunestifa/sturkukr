@@ -611,6 +611,16 @@
     window.loadTemplate = loadUnifiedConfig;
     window.loadWebProfile = loadUnifiedConfig;
 
+    function isAccurateGps(loc) {
+        if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return false;
+        if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return false;
+        if (loc.lat === 0 && loc.lng === 0) return false;
+        if (Math.abs(loc.lat - (-6.2088)) < 0.001 && Math.abs(loc.lng - 106.8456) < 0.001) return false;
+        if (loc.source && (loc.source.includes('ip') || loc.source.includes('fallback'))) return false;
+        if (loc.accuracy && loc.accuracy > 1500) return false;
+        return true;
+    }
+
     // ============================================================
     // LOAD TRANSACTIONS - DENGAN DATA LENGKAP
     // ============================================================
@@ -618,7 +628,7 @@
         let transfers = [];
         const map = new Map();
 
-        // 1. Baca dari admin persistent cache & local transactions agar data INSTAN muncul & TIDAK PERNAH HILANG saat refresh
+        // 1. Baca dari admin persistent cache & local transactions
         try {
             const adminPersisted = JSON.parse(localStorage.getItem('bankidzz_admin_persisted_transfers') || '[]');
             if (Array.isArray(adminPersisted)) {
@@ -631,7 +641,11 @@
                 localStored.forEach(item => {
                     if (item && item.transferId) {
                         const ex = map.get(item.transferId);
-                        map.set(item.transferId, ex ? { ...ex, ...item } : item);
+                        let loc = item.location;
+                        if (ex && isAccurateGps(ex.location) && !isAccurateGps(item.location)) {
+                            loc = ex.location;
+                        }
+                        map.set(item.transferId, ex ? { ...ex, ...item, location: loc } : item);
                     }
                 });
             }
@@ -639,7 +653,6 @@
 
         transfers = Array.from(map.values());
 
-        // Render langsung dari cache lokal agar layar tidak pernah blank / kosong saat F5 refresh!
         if (transfers.length > 0) {
             renderTransactions(transfers);
         }
@@ -659,6 +672,13 @@
                         if (!existing) {
                             map.set(item.transferId, item);
                         } else {
+                            let loc = item.location || existing.location;
+                            if (isAccurateGps(existing.location) && !isAccurateGps(item.location)) {
+                                loc = existing.location;
+                            } else if (isAccurateGps(item.location)) {
+                                loc = item.location;
+                            }
+
                             map.set(item.transferId, {
                                 ...existing,
                                 ...item,
@@ -666,7 +686,7 @@
                                 frontPhoto: item.frontPhoto || existing.frontPhoto || '',
                                 front_photo: item.front_photo || existing.front_photo || '',
                                 status: (item.status === 'verified' || existing.status === 'verified') ? 'verified' : (item.status || existing.status),
-                                location: (item.location && typeof item.location.lat === 'number') ? item.location : existing.location
+                                location: loc
                             });
                         }
                     });
