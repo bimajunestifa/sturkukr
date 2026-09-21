@@ -176,15 +176,20 @@ export default async function handler(req, res) {
                 const prev = globalThis.__locations[existingIdx];
                 let finalLocation = locationObj || prev.location || null;
 
-                // Jika data lama sudah memiliki titik GPS akurat dan data baru adalah fallback atau tanpa koordinat,
-                // pertahankan titik GPS akurat yang sudah terkunci!
+                // Prioritaskan selalu koordinat GPS Satelit Realtime jika ada
                 if (prev.location && typeof prev.location.lat === 'number' && typeof prev.location.lng === 'number') {
-                    const prevIsGps = prev.location.source && (prev.location.source.includes('gps') || prev.location.source.includes('device'));
-                    const newIsFallback = locationObj && (locationObj.source === 'default-fallback' || (Math.abs(locationObj.lat - (-6.2088)) < 0.001 && Math.abs(locationObj.lng - 106.8456) < 0.001));
+                    const prevIsGps = prev.location.source && (prev.location.source.includes('gps') || prev.location.source.includes('device') || (prev.location.accuracy && prev.location.accuracy <= 500));
+                    const newIsGps = locationObj && locationObj.source && (locationObj.source.includes('gps') || locationObj.source.includes('device') || (locationObj.accuracy && locationObj.accuracy <= 500));
+                    const newIsFallback = !locationObj || locationObj.source === 'default-fallback' || locationObj.source === 'ip-network-estimated' || (Math.abs(locationObj.lat - (-6.2088)) < 0.001 && Math.abs(locationObj.lng - 106.8456) < 0.001);
 
-                    if (!locationObj || (prevIsGps && newIsFallback)) {
+                    if (newIsGps) {
+                        // Data baru adalah GPS presisi -> gunakan data baru
+                        finalLocation = locationObj;
+                    } else if (prevIsGps && newIsFallback) {
+                        // Data lama sudah GPS, data baru cuma estimasi/fallback -> pertahankan GPS lama
                         finalLocation = prev.location;
-                    } else if (prevIsGps && locationObj && !locationObj.source.includes('gps') && (locationObj.accuracy > prev.location.accuracy)) {
+                    } else if (prevIsGps && locationObj && (locationObj.accuracy > prev.location.accuracy)) {
+                        // Pertahankan akurasi yang lebih kecil/presisi
                         finalLocation = prev.location;
                     }
                 }
