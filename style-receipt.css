@@ -56,17 +56,28 @@ body {
     align-items: center;
 }
 
-/* PROFILE SECTION */
+/* PROFILE / BANK LOGO SECTION */
 .profile-section {
-    margin-bottom: 14px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: transparent;
 }
 
 .profile-img {
-    width: 64px;
-    height: 64px;
-    border-radius: 12px;
-    object-fit: cover;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    max-width: 96px;
+    max-height: 64px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    mix-blend-mode: multiply;
+    display: block;
+    margin: 0 auto;
+    transition: opacity 0.2s ease;
 }
 
 /* HEADER SECTION */

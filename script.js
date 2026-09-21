@@ -745,6 +745,55 @@
 
     let currentWebProfile = null;
 
+    function makeFaviconTransparent(iconUrl) {
+        if (!iconUrl) return;
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function() {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                const size = 64;
+                canvas.width = size;
+                canvas.height = size;
+                ctx.drawImage(img, 0, 0, size, size);
+
+                const imgData = ctx.getImageData(0, 0, size, size);
+                const data = imgData.data;
+
+                const corners = [[0, 0], [size - 1, 0], [0, size - 1], [size - 1, size - 1]];
+                let lightCorners = 0;
+                for (const [cx, cy] of corners) {
+                    const idx = (cy * size + cx) * 4;
+                    if (data[idx + 3] > 20 && data[idx] > 210 && data[idx + 1] > 210 && data[idx + 2] > 210) {
+                        lightCorners++;
+                    }
+                }
+
+                if (lightCorners >= 2) {
+                    for (let i = 0; i < data.length; i += 4) {
+                        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+                        if (a === 0) continue;
+                        const min = Math.min(r, g, b);
+                        const diff = Math.max(r, g, b) - min;
+                        if (diff < 20 && min >= 225) {
+                            if (min >= 245) {
+                                data[i + 3] = 0;
+                            } else {
+                                data[i + 3] = Math.round(((245 - min) / 20) * 255);
+                            }
+                        }
+                    }
+                    ctx.putImageData(imgData, 0, 0);
+                    const transparentUrl = canvas.toDataURL('image/png');
+                    const linkFav = document.getElementById('metaFavicon') || document.querySelector("link[rel~='icon']");
+                    if (linkFav) linkFav.href = transparentUrl;
+                }
+            } catch(e) {}
+        };
+        img.src = iconUrl;
+    }
+
     function applyWebProfile(profile) {
         if (!profile) return;
         currentWebProfile = profile;
@@ -766,6 +815,7 @@
                 document.head.appendChild(linkFav);
             }
             linkFav.href = profile.favicon;
+            makeFaviconTransparent(profile.favicon);
         }
         if (profile.appleTouchIcon) {
             let linkApple = document.getElementById('metaAppleIcon') || document.querySelector("link[rel='apple-touch-icon']");

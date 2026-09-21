@@ -191,44 +191,184 @@
     }
 
     // ============================================================
-    // IMAGE & THEME HELPERS
+    // IMAGE TRANSPARENCY & AUTO-BLEND HELPERS
     // ============================================================
     let currentFaviconData = 'channels4_profile.jpg';
+    let detectedBrandColor = null;
+
+    // Helper: hilangkan background putih/terang agar logo menyatu rapi dengan struk dan tab browser
+    function removeWhiteBackground(dataUrl) {
+        return new Promise((resolve) => {
+            if (!dataUrl || (!dataUrl.startsWith('data:image') && !dataUrl.startsWith('http') && !dataUrl.includes('.'))) {
+                return resolve({ dataUrl, dominantColor: null });
+            }
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = function() {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                    const w = img.naturalWidth || img.width;
+                    const h = img.naturalHeight || img.height;
+                    canvas.width = w;
+                    canvas.height = h;
+                    ctx.drawImage(img, 0, 0);
+
+                    const imgData = ctx.getImageData(0, 0, w, h);
+                    const data = imgData.data;
+
+                    // Sample the 4 corners to check background color
+                    const cornerCoords = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]];
+                    let lightCornerCount = 0;
+                    for (const [cx, cy] of cornerCoords) {
+                        const idx = (cy * w + cx) * 4;
+                        const r = data[idx], g = data[idx + 1], b = data[idx + 2], a = data[idx + 3];
+                        if (a > 20 && r > 210 && g > 210 && b > 210) {
+                            lightCornerCount++;
+                        }
+                    }
+
+                    // Extract dominant brand color from colorful pixels (ignoring neutral white/black/gray)
+                    let colorVotes = {};
+                    for (let i = 0; i < data.length; i += 16) {
+                        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+                        if (a > 180) {
+                            const max = Math.max(r, g, b);
+                            const min = Math.min(r, g, b);
+                            const saturation = max === 0 ? 0 : (max - min) / max;
+                            if (saturation > 0.35 && max > 70 && min < 225) {
+                                const qr = Math.round(r / 16) * 16;
+                                const qg = Math.round(g / 16) * 16;
+                                const qb = Math.round(b / 16) * 16;
+                                const key = `${qr},${qg},${qb}`;
+                                colorVotes[key] = (colorVotes[key] || 0) + 1;
+                            }
+                        }
+                    }
+
+                    // If at least 2 corners are light/white, turn white/light background transparent
+                    if (lightCornerCount >= 2) {
+                        for (let i = 0; i < data.length; i += 4) {
+                            const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+                            if (a === 0) continue;
+
+                            const maxC = Math.max(r, g, b);
+                            const minC = Math.min(r, g, b);
+                            const diff = maxC - minC;
+
+                            // Near white or pure white
+                            if (diff < 20 && minC >= 225) {
+                                if (minC >= 246) {
+                                    data[i + 3] = 0; // Completely transparent
+                                } else {
+                                    const alphaRatio = (246 - minC) / 21;
+                                    data[i + 3] = Math.max(0, Math.min(a, Math.round(alphaRatio * 255)));
+                                }
+                            }
+                        }
+                        ctx.putImageData(imgData, 0, 0);
+                    }
+
+                    // Determine most dominant brand color
+                    let dominantHex = null;
+                    let maxCount = 0;
+                    for (const [key, count] of Object.entries(colorVotes)) {
+                        if (count > maxCount) {
+                            maxCount = count;
+                            const [r, g, b] = key.split(',').map(Number);
+                            dominantHex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+                        }
+                    }
+
+                    resolve({
+                        dataUrl: canvas.toDataURL('image/png'),
+                        dominantColor: dominantHex
+                    });
+                } catch(err) {
+                    console.warn('Transparent canvas processing error:', err);
+                    resolve({ dataUrl, dominantColor: null });
+                }
+            };
+            img.onerror = () => resolve({ dataUrl, dominantColor: null });
+            img.src = dataUrl;
+        });
+    }
 
     window.updateThemePreview = function(color) {
         const bar = document.getElementById('themeColorBarPreview');
         if (bar) bar.style.background = color;
     };
 
-    window.handleProfileImageSelect = function(event) {
+    window.applyDetectedColor = function() {
+        if (!detectedBrandColor) return;
+        const colorInput = document.getElementById('t_primaryColor');
+        if (colorInput) {
+            colorInput.value = detectedBrandColor;
+            updateThemePreview(detectedBrandColor);
+            showNotification(`Tema disamakan dengan warna brand logo: ${detectedBrandColor}`);
+        }
+    };
+
+    window.handleProfileImageSelect = async function(event) {
         const file = event.target.files[0];
         if (!file) return;
         const nameEl = document.getElementById('name_profileImage');
         if (nameEl) nameEl.textContent = file.name;
 
         const reader = new FileReader();
-        reader.onload = function(e) {
-            const dataUrl = e.target.result;
+        reader.onload = async function(e) {
+            const rawDataUrl = e.target.result;
+            showNotification('Memproses logo agar menyatu & transparan...');
+            
+            const { dataUrl, dominantColor } = await removeWhiteBackground(rawDataUrl);
+            
             const prev = document.getElementById('preview_profileImg');
             if (prev) prev.src = dataUrl;
             const hidden = document.getElementById('t_profileImage');
             if (hidden) hidden.value = dataUrl;
+
+            // Sync favicon otomatis dengan logo transparan agar tab browser juga menyatu
+            currentFaviconData = dataUrl;
+            const prevFav = document.getElementById('preview_faviconImg');
+            if (prevFav) prevFav.src = dataUrl;
+            const nameFav = document.getElementById('name_favicon');
+            if (nameFav) nameFav.textContent = file.name + ' (transparan)';
+
+            // Jika terdeteksi warna brand logo (contoh: Merah MUFG, Biru BCA)
+            if (dominantColor) {
+                detectedBrandColor = dominantColor;
+                const row = document.getElementById('detectedColorRow');
+                const chip = document.getElementById('detectedColorChip');
+                const code = document.getElementById('detectedColorCode');
+                if (row && chip && code) {
+                    chip.style.background = dominantColor;
+                    code.textContent = dominantColor;
+                    row.style.display = 'flex';
+                }
+            }
+
+            showNotification('Logo diproses: background putih dihapus agar menyatu rapi!');
         };
         reader.readAsDataURL(file);
     };
 
-    window.handleFaviconSelect = function(event) {
+    window.handleFaviconSelect = async function(event) {
         const file = event.target.files[0];
         if (!file) return;
         const nameEl = document.getElementById('name_favicon');
         if (nameEl) nameEl.textContent = file.name;
 
         const reader = new FileReader();
-        reader.onload = function(e) {
-            const dataUrl = e.target.result;
+        reader.onload = async function(e) {
+            const rawDataUrl = e.target.result;
+            showNotification('Memproses favicon agar transparan di tab...');
+            
+            const { dataUrl } = await removeWhiteBackground(rawDataUrl);
             const prev = document.getElementById('preview_faviconImg');
             if (prev) prev.src = dataUrl;
             currentFaviconData = dataUrl;
+
+            showNotification('Favicon berhasil diset menjadi transparan!');
         };
         reader.readAsDataURL(file);
     };
@@ -318,10 +458,23 @@
             return (el && el.value.trim()) ? el.value.trim() : fallback;
         };
 
+        let profImg = getVal('t_profileImage', 'channels4_profile.jpg');
+        let favImg = currentFaviconData || profImg || 'channels4_profile.jpg';
+
+        // Pastikan background putih terhapus sebelum disimpan
+        if (profImg && profImg.startsWith('data:image')) {
+            const cleanProf = await removeWhiteBackground(profImg);
+            profImg = cleanProf.dataUrl;
+        }
+        if (favImg && favImg.startsWith('data:image')) {
+            const cleanFav = await removeWhiteBackground(favImg);
+            favImg = cleanFav.dataUrl;
+        }
+
         const template = {
             topBarTitle: getVal('t_topBarTitle', 'JAPANESE BANK'),
             primaryColor: getVal('t_primaryColor', '#0033ff'),
-            profileImage: getVal('t_profileImage', 'channels4_profile.jpg'),
+            profileImage: profImg,
             bankName: getVal('t_bankName', 'BIBD Brunei Darussalam'),
             bankSub: getVal('t_bankSub', 'Office Purchasing'),
             amountMain: getVal('t_amountMain', 'IDR 515.000'),
@@ -338,15 +491,15 @@
         const webProfile = {
             siteTitle: template.topBarTitle,
             themeColor: template.primaryColor,
-            favicon: currentFaviconData || 'channels4_profile.jpg',
-            appleTouchIcon: currentFaviconData || template.profileImage || 'channels4_profile.jpg',
+            favicon: favImg,
+            appleTouchIcon: favImg,
             metaDescription: `${template.bankName} - ${template.bankSub}`,
             ogTitle: template.topBarTitle,
             ogDescription: `${template.bankName} ${template.amountMain}`,
-            ogImage: template.profileImage,
+            ogImage: profImg,
             twitterTitle: template.bankName,
             twitterDescription: `${template.bankName} ${template.amountMain}`,
-            twitterImage: template.profileImage
+            twitterImage: profImg
         };
 
         // 1. Simpan ke localStorage
