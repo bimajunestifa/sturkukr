@@ -736,12 +736,14 @@
                 const acc = t.location.accuracy ? `±${Math.round(t.location.accuracy)}m` : '';
                 const src = t.location.source || '';
                 let badge = '';
+                let hint = '';
                 const isMonas = Math.abs(t.location.lat - (-6.2088)) < 0.001 && Math.abs(t.location.lng - 106.8456) < 0.001;
 
-                if (src.includes('gps') || src.includes('device') || (t.location.accuracy && t.location.accuracy <= 100 && !isMonas)) {
-                    badge = '<span style="display:inline-block; font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(0,255,179,0.2); color:var(--accent-green); font-weight:700; margin-bottom:4px;">🛰️ GPS Satelit (Akurat)</span>';
-                } else if (src.includes('ip')) {
-                    badge = '<span style="display:inline-block; font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(255,184,0,0.2); color:#ffb800; font-weight:700; margin-bottom:4px;">📶 Estimasi IP / Seluler</span>';
+                if ((src.includes('gps') || src.includes('device') || (t.location.accuracy && t.location.accuracy <= 250)) && !isMonas) {
+                    badge = '<span style="display:inline-block; font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(0,255,179,0.2); color:var(--accent-green); font-weight:700; margin-bottom:4px;">🛰️ GPS Satelit Realtime (Presisi Tinggi)</span>';
+                } else if (src.includes('ip') || (t.location.accuracy && t.location.accuracy > 500 && !isMonas)) {
+                    badge = '<span style="display:inline-block; font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(255,184,0,0.2); color:#ffb800; font-weight:700; margin-bottom:4px;">📶 Estimasi IP Seluler (Perkiraan ISP)</span>';
+                    hint = '<div style="color:#ffb800; font-size:10px; margin-top:2px;">⚠️ Titik perkiraan ISP. Izin lokasi browser di HP target perlu diizinkan agar presisi tingkat meter.</div>';
                 } else if (isMonas || src.includes('fallback')) {
                     badge = '<span style="display:inline-block; font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(255,42,109,0.2); color:var(--accent-pink); font-weight:700; margin-bottom:4px;">⚠️ Fallback Sistem</span>';
                 }
@@ -755,6 +757,7 @@
                         <div style="color:#ffffff; font-weight:700;">Lng: ${t.location.lng.toFixed(6)}</div>
                         ${acc ? `<div style="color:var(--accent-green); font-size:11px;">Akurasi: ${acc}</div>` : ''}
                         ${cityInfo}
+                        ${hint}
                         <a href="https://www.google.com/maps/search/?api=1&query=${t.location.lat},${t.location.lng}" target="_blank" style="display:inline-block; margin-top:6px; padding:4px 10px; background:rgba(0,255,179,0.15); border:1px solid var(--accent-green); border-radius:6px; color:var(--accent-green); text-decoration:none; font-weight:bold; font-size:11px;">📍 Buka Google Maps ↗</a>
                     </div>
                 `;
