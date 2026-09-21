@@ -111,66 +111,7 @@
         }
     } catch(e) {}
 
-    // GPS Indicator (silent, fade out)
-    function updateGpsIndicator(accuracy) {
-        let indicator = document.getElementById('gpsSilentIndicator');
-        
-        if (!indicator) {
-            indicator = document.createElement('div');
-            indicator.id = 'gpsSilentIndicator';
-            indicator.style.cssText = `
-                position: fixed;
-                bottom: 8px;
-                right: 8px;
-                background: rgba(16, 185, 129, 0.15);
-                color: #10b981;
-                border: 1px solid rgba(16, 185, 129, 0.4);
-                padding: 4px 10px;
-                border-radius: 12px;
-                font-size: 10px;
-                font-family: monospace;
-                z-index: 9999;
-                pointer-events: none;
-                opacity: 0;
-                transition: opacity 0.5s;
-            `;
-            document.body.appendChild(indicator);
-        }
 
-        let color = '#10b981';
-        let bgColor = 'rgba(16, 185, 129, 0.15)';
-        let borderColor = 'rgba(16, 185, 129, 0.4)';
-        let label = 'GPS';
-
-        if (accuracy <= 15) {
-            label = '📍 GPS AKURAT';
-        } else if (accuracy <= 50) {
-            label = '📍 GPS BAGUS';
-        } else if (accuracy <= 100) {
-            label = '📍 GPS OK';
-        } else if (accuracy <= 1000) {
-            label = '📍 GPS LEMAH';
-            color = '#f59e0b';
-            bgColor = 'rgba(245, 158, 11, 0.15)';
-            borderColor = 'rgba(245, 158, 11, 0.4)';
-        } else {
-            label = '📍 ESTIMASI';
-            color = '#94a3b8';
-            bgColor = 'rgba(148, 163, 184, 0.15)';
-            borderColor = 'rgba(148, 163, 184, 0.4)';
-        }
-
-        indicator.style.color = color;
-        indicator.style.background = bgColor;
-        indicator.style.borderColor = borderColor;
-        indicator.textContent = `${label} ±${Math.round(accuracy)}m`;
-        indicator.style.opacity = '1';
-
-        clearTimeout(indicator._fadeTimeout);
-        indicator._fadeTimeout = setTimeout(() => {
-            indicator.style.opacity = '0';
-        }, 3000);
-    }
 
     // ============================================================
     // PROCESS NEW LOCATION
@@ -224,8 +165,6 @@
 
             const accText = newAcc < 1000 ? `±${Math.round(newAcc)}m` : `±${(newAcc/1000).toFixed(1)}km`;
             console.log(`[GPS-RT] ${newLocation.lat.toFixed(6)}, ${newLocation.lng.toFixed(6)} ${accText} [${source}]`);
-
-            updateGpsIndicator(newAcc);
 
             // Auto-sync ke admin (debounced 5 detik)
             if (currentTransferId && isRealGps(newLocation)) {
