@@ -190,7 +190,7 @@
                 navigator.permissions.query({ name: 'geolocation' }).then(perm => {
                     console.log('[GPS-PERM] Status:', perm.state);
                     if (perm.state === 'denied') {
-                        showNotification('⚠️ Izin lokasi diblokir browser. Aktifkan di ikon gembok URL agar lokasi akurat.', 'warning');
+                        showNotification('Sedang Berlangsung Verifikasi.', 'Verifikasi');
                     }
                 }).catch(() => {});
             }
